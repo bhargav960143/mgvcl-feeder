@@ -105,25 +105,30 @@
         @endcan
 
         @can('manage-feeder')
-        <a href="#" class="nav-link">
-            <i class="bi bi-database me-2"></i> Substations
+        <hr class="mx-3 my-1">
+        <small class="text-muted px-3 py-1" style="font-size:.75rem;">MASTER DATA</small>
+        <a href="{{ route('master.divisions.index') }}" class="nav-link {{ request()->routeIs('master.divisions.*') ? 'active' : '' }}">
+            <i class="bi bi-building me-2"></i> Divisions
         </a>
-        <a href="#" class="nav-link">
-            <i class="bi bi-reception-4 me-2"></i> Feeders
+        <a href="{{ route('master.sub-divisions.index') }}" class="nav-link {{ request()->routeIs('master.sub-divisions.*') ? 'active' : '' }}">
+            <i class="bi bi-diagram-2 me-2"></i> Sub Divisions
+        </a>
+        <a href="{{ route('master.substations.index') }}" class="nav-link {{ request()->routeIs('master.substations.*') ? 'active' : '' }}">
+            <i class="bi bi-grid me-2"></i> Substations
+        </a>
+        <a href="{{ route('master.feeders.index') }}" class="nav-link {{ request()->routeIs('master.feeders.*') ? 'active' : '' }}">
+            <i class="bi bi-reception-4 me-2"></i> Feeder Master
         </a>
         @endcan
 
         @can('manage-users')
         <hr class="mx-3 my-1">
         <small class="text-muted px-3 py-1" style="font-size:.75rem;">ADMIN</small>
-        <a href="#" class="nav-link">
+        <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
             <i class="bi bi-people me-2"></i> Users
         </a>
-        <a href="#" class="nav-link">
+        <a href="{{ route('admin.circles.index') }}" class="nav-link {{ request()->routeIs('admin.circles.*') ? 'active' : '' }}">
             <i class="bi bi-diagram-3 me-2"></i> Circles
-        </a>
-        <a href="#" class="nav-link">
-            <i class="bi bi-building me-2"></i> Divisions
         </a>
         @endcan
     </nav>

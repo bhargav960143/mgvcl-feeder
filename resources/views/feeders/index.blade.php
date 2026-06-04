@@ -9,8 +9,8 @@
         <small class="text-muted">{{ $feeders->total() }} feeders found</small>
     </div>
     @can('export-report')
-    <a href="#" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-download me-1"></i> Export
+    <a href="{{ route('reports.export') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i> Export CSV
     </a>
     @endcan
 </div>
@@ -135,19 +135,24 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            @can('updateStatus', $feeder)
-                            <button type="button"
-                                    class="btn btn-sm btn-outline-primary"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#updateModal"
-                                    data-feeder-id="{{ $feeder->id }}"
-                                    data-feeder-name="{{ $feeder->name }}"
-                                    data-feeder-status="{{ $feeder->current_status }}">
-                                <i class="bi bi-pencil-square"></i> Update
-                            </button>
-                            @else
-                            <span class="text-muted small">—</span>
-                            @endcan
+                            <div class="d-flex gap-1 justify-content-center">
+                                @can('updateStatus', $feeder)
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#updateModal"
+                                        data-feeder-id="{{ $feeder->id }}"
+                                        data-feeder-name="{{ $feeder->name }}"
+                                        data-feeder-status="{{ $feeder->current_status }}">
+                                    <i class="bi bi-pencil-square"></i> Update
+                                </button>
+                                @endcan
+                                @can('view-status-logs')
+                                <a href="{{ route('feeders.logs', $feeder) }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-clock-history"></i>
+                                </a>
+                                @endcan
+                            </div>
                         </td>
                     </tr>
                     @empty
