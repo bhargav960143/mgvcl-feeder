@@ -237,45 +237,59 @@ Using **Spatie Laravel Permission** package.
 
 ### 6.2 Permission Matrix
 
-| Permission                       | admin | circle | division_mgr | sub_div_mgr |
-|----------------------------------|:-----:|:------:|:------------:|:-----------:|
-| `view-feeder-list`               | ✅    | ✅     | ✅           | ✅          |
-| `update-feeder-status`           | ✅    | ✅     | ✅           | ✅          |
-| `view-dashboard`                 | ✅    | ✅     | ❌           | ❌          |
-| `view-feeder-detail`             | ✅    | ✅     | ❌           | ❌          |
-| `view-status-logs`               | ✅    | ✅     | ❌           | ❌          |
-| `export-report`                  | ✅    | ✅     | ❌           | ❌          |
-| `manage-substation`              | ✅    | ✅     | ❌           | ❌          |
-| `manage-feeder`                  | ✅    | ✅     | ❌           | ❌          |
-| `manage-circle`                  | ✅    | ❌     | ❌           | ❌          |
-| `manage-division`                | ✅    | ❌     | ❌           | ❌          |
-| `manage-sub-division`            | ✅    | ❌     | ❌           | ❌          |
-| `manage-users`                   | ✅    | ❌     | ❌           | ❌          |
-| `import-csv`                     | ✅    | ❌     | ❌           | ❌          |
+| Permission                          | admin | circle (own) | division_mgr (own) | sub_div_mgr (own) |
+|-------------------------------------|:-----:|:------------:|:------------------:|:-----------------:|
+| `view-feeder-list`                  | ✅    | ✅           | ✅                 | ✅                |
+| `update-feeder-status`              | ✅    | ✅           | ✅                 | ✅                |
+| `view-dashboard`                    | ✅    | ✅           | ❌                 | ❌                |
+| `view-feeder-detail`                | ✅    | ✅           | ❌                 | ❌                |
+| `view-status-logs`                  | ✅    | ✅           | ❌                 | ❌                |
+| `export-report`                     | ✅    | ✅           | ❌                 | ❌                |
+| `manage-division` *(own circle)*    | ✅    | ✅           | ❌                 | ❌                |
+| `manage-sub-division` *(own circle)*| ✅    | ✅           | ❌                 | ❌                |
+| `manage-substation` *(own circle)*  | ✅    | ✅           | ❌                 | ❌                |
+| `manage-feeder` *(own circle)*      | ✅    | ✅           | ❌                 | ❌                |
+| `manage-circle`                     | ✅    | ❌           | ❌                 | ❌                |
+| `manage-users`                      | ✅    | ❌           | ❌                 | ❌                |
+| `import-csv`                        | ✅    | ❌           | ❌                 | ❌                |
 
-> **division_manager / sub_division_manager:** feeder list + status update ONLY.
-> No dashboard, no logs, no reports, no master data access.
+> **"own" = strict jurisdiction isolation.** Circle sees only its circle's data. Division sees only its division's data. Sub division sees only its sub division's data. No cross-scope access at any level.
 
-### 6.3 Data Scoping Rules
+> **division_manager / sub_division_manager:** feeder list + status update ONLY — no dashboard, logs, reports, or master data.
 
-Every query scoped to user's jurisdiction — enforced in middleware + policy, never just views:
+### 6.3 Strict Jurisdiction Isolation (enforced at DB layer)
 
-```php
-// jurisdiction_type = 'circle'       → filter feeders WHERE division.circle_id = user.jurisdiction_id
-// jurisdiction_type = 'division'     → filter feeders WHERE substation.sub_division.division_id = user.jurisdiction_id
-// jurisdiction_type = 'sub_division' → filter feeders WHERE substation.sub_division_id = user.jurisdiction_id
-// jurisdiction_type = 'global'       → no filter (admin only)
+Every resource query is filtered by the user's jurisdiction. Policy + middleware enforce this — never trust frontend/UI alone.
+
+```
+admin          → no filter (sees everything)
+
+circle         → divisions       WHERE circle_id = user.jurisdiction_id
+               → sub_divisions   WHERE division.circle_id = user.jurisdiction_id
+               → substations     WHERE sub_division.division.circle_id = user.jurisdiction_id
+               → feeders         WHERE substation.sub_division.division.circle_id = user.jurisdiction_id
+
+division_mgr   → sub_divisions   WHERE division_id = user.jurisdiction_id
+               → substations     WHERE sub_division.division_id = user.jurisdiction_id
+               → feeders         WHERE substation.sub_division.division_id = user.jurisdiction_id
+               (cannot see other divisions, cannot see circle-level data)
+
+sub_div_mgr    → substations     WHERE sub_division_id = user.jurisdiction_id
+               → feeders         WHERE substation.sub_division_id = user.jurisdiction_id
+               (cannot see other sub-divisions, cannot see division-level data)
 ```
 
-**Rule:** A `division_manager` cannot view or update any feeder outside their division — enforced at DB query level, not UI.
+**Implementation:** `ScopeToJurisdiction` middleware sets a shared scope object. All Eloquent queries use this scope via model global scopes or repository pattern. Guessing another resource's ID in the URL returns 403 — policy check always verifies ownership.
 
-### 6.4 What `circle` role manages (CRUD)
+### 6.4 What `circle` role manages (CRUD — own circle only)
 
-Circle users are the data stewards. They:
+- Create / edit / delete Divisions within their circle
+- Create / edit / delete Sub Divisions within their circle's divisions
 - Create / edit / delete Substations within their circle
 - Create / edit / delete Feeders within their circle
-- Can also update feeder status
-- Cannot manage Circles, Divisions, or Sub Divisions (admin-only master data)
+- Update feeder status within their circle
+- Cannot touch any resource belonging to another circle
+- Cannot manage Circles themselves (admin-only)
 - Cannot manage users
 
 ---
@@ -435,12 +449,18 @@ Route::middleware(['auth', 'scope.jurisdiction'])->group(function () {
         Route::resource('feeders', FeederController::class)->except(['show']); // show is public to all roles
     });
 
-    // Admin only
+    // Circle + admin — own-circle master data management
+    Route::middleware('can:manage-division')->prefix('master')->name('master.')->group(function () {
+        Route::resource('divisions', DivisionController::class);        // circle sees own circle's divisions only
+        Route::resource('sub-divisions', SubDivisionController::class); // circle sees own circle's sub-divisions only
+        Route::resource('substations', SubstationController::class);
+        Route::resource('feeders', FeederMasterController::class)->except(['show']);
+    });
+
+    // Admin only — global master data + user management
     Route::middleware('can:manage-users')->prefix('admin')->name('admin.')->group(function () {
         Route::resource('users', UserController::class);
-        Route::resource('circles', CircleController::class);
-        Route::resource('divisions', DivisionController::class);
-        Route::resource('sub-divisions', SubDivisionController::class);
+        Route::resource('circles', CircleController::class); // only admin creates/edits circles
     });
 });
 
@@ -837,5 +857,7 @@ MySQL DB: `mgvcl_feeder` | Charset: `utf8mb4` | Collation: `utf8mb4_unicode_ci`
 | Hierarchy | Circle → Division → Sub Division → Substation → Feeder | Added circle level per client feedback 2026-06-04 |
 | Status update permission | All 4 roles (admin/circle/division/sub_division) | Client: division & sub-division update status; substation_manager role removed |
 | division/sub_division scope | Feeder list + status update ONLY | No dashboard, no logs, no reports — confirmed 2026-06-04 |
+| Jurisdiction isolation | Strict at every level | Circle sees own circle only; division sees own division only; sub_div sees own sub_div only — no cross-scope at any level |
+| circle manages divisions/sub-divisions | Yes, but own circle only | Circle is data steward for all master data within their jurisdiction |
 | Substation + Feeder CRUD | circle + admin only | Field data stewardship owned by circle, not field staff |
 | Removed roles | `substation_manager`, `field_staff`, `super_admin` | Client decision 2026-06-04 — replaced by `admin` + `circle` |
