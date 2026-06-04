@@ -230,8 +230,8 @@ Using **Spatie Laravel Permission** package.
 |-----------------------|---------------------|-------------|
 | `admin`               | Everything (global) | Full access — user management, all CRUD, import, reports |
 | `circle`              | One circle          | Manages substation + feeder master data (CRUD); views all feeders in circle |
-| `division_manager`    | One division        | Views feeder list; updates feeder status |
-| `sub_division_manager`| One sub division    | Views feeder list; updates feeder status |
+| `division_manager`    | One division        | View feeder list + update status ONLY |
+| `sub_division_manager`| One sub division    | View feeder list + update status ONLY |
 
 **Removed roles:** `super_admin`, `substation_manager`, `field_staff` — no substation-level user accounts.
 
@@ -239,19 +239,22 @@ Using **Spatie Laravel Permission** package.
 
 | Permission                       | admin | circle | division_mgr | sub_div_mgr |
 |----------------------------------|:-----:|:------:|:------------:|:-----------:|
-| `view-dashboard`                 | ✅    | ✅     | ✅           | ✅          |
 | `view-feeder-list`               | ✅    | ✅     | ✅           | ✅          |
-| `view-feeder-detail`             | ✅    | ✅     | ✅           | ✅          |
 | `update-feeder-status`           | ✅    | ✅     | ✅           | ✅          |
-| `view-status-logs`               | ✅    | ✅     | ✅           | ✅          |
+| `view-dashboard`                 | ✅    | ✅     | ❌           | ❌          |
+| `view-feeder-detail`             | ✅    | ✅     | ❌           | ❌          |
+| `view-status-logs`               | ✅    | ✅     | ❌           | ❌          |
+| `export-report`                  | ✅    | ✅     | ❌           | ❌          |
 | `manage-substation`              | ✅    | ✅     | ❌           | ❌          |
 | `manage-feeder`                  | ✅    | ✅     | ❌           | ❌          |
 | `manage-circle`                  | ✅    | ❌     | ❌           | ❌          |
 | `manage-division`                | ✅    | ❌     | ❌           | ❌          |
 | `manage-sub-division`            | ✅    | ❌     | ❌           | ❌          |
-| `export-report`                  | ✅    | ✅     | ✅           | ✅          |
 | `manage-users`                   | ✅    | ❌     | ❌           | ❌          |
 | `import-csv`                     | ✅    | ❌     | ❌           | ❌          |
+
+> **division_manager / sub_division_manager:** feeder list + status update ONLY.
+> No dashboard, no logs, no reports, no master data access.
 
 ### 6.3 Data Scoping Rules
 
@@ -484,9 +487,8 @@ class FeederStatusService
 
     private function notifyManagers(Feeder $feeder): void
     {
-        // Notify circle user + division_manager whose jurisdiction covers this feeder
-        // sub_division_manager already made the update so they know — notify upward only
-        $managers = User::whereIn('jurisdiction_type', ['global', 'circle', 'division'])
+        // Notify admin + circle only — division/sub_division managers have no report access
+        $managers = User::whereIn('jurisdiction_type', ['global', 'circle'])
             ->whereJurisdictionCovers($feeder)
             ->get();
 
@@ -833,6 +835,7 @@ MySQL DB: `mgvcl_feeder` | Charset: `utf8mb4` | Collation: `utf8mb4_unicode_ci`
 | CSV re-import | Does not overwrite current_status | Prevents wiping live data on re-import |
 | User creation | admin only | No self-registration risk for internal utility |
 | Hierarchy | Circle → Division → Sub Division → Substation → Feeder | Added circle level per client feedback 2026-06-04 |
-| Status update permission | All 4 roles (admin/circle/division/sub_division) | Client changed: division & sub-division now update status; substation_manager role removed |
+| Status update permission | All 4 roles (admin/circle/division/sub_division) | Client: division & sub-division update status; substation_manager role removed |
+| division/sub_division scope | Feeder list + status update ONLY | No dashboard, no logs, no reports — confirmed 2026-06-04 |
 | Substation + Feeder CRUD | circle + admin only | Field data stewardship owned by circle, not field staff |
 | Removed roles | `substation_manager`, `field_staff`, `super_admin` | Client decision 2026-06-04 — replaced by `admin` + `circle` |
