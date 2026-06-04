@@ -1,0 +1,242 @@
+@extends('layouts.app')
+
+@section('title', 'Feeder Status — MGVCL')
+
+@section('content')
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold">Feeder Status</h4>
+        <small class="text-muted">{{ $feeders->total() }} feeders found</small>
+    </div>
+    @can('export-report')
+    <a href="#" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i> Export
+    </a>
+    @endcan
+</div>
+
+{{-- Filters --}}
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="GET" action="{{ route('feeders.index') }}" class="row g-2 align-items-end">
+
+            {{-- Search --}}
+            <div class="col-12 col-md-3">
+                <input type="text" name="search" class="form-control form-control-sm"
+                       placeholder="Search feeder / TND code"
+                       value="{{ request('search') }}">
+            </div>
+
+            {{-- Status --}}
+            <div class="col-6 col-md-2">
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">All Status</option>
+                    @foreach($statusLabels as $val => $label)
+                    <option value="{{ $val }}" {{ request('status') == $val ? 'selected' : '' }}>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Category --}}
+            <div class="col-6 col-md-2">
+                <select name="category" class="form-select form-select-sm">
+                    <option value="">All Category</option>
+                    @foreach($categories as $cat)
+                    <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            {{-- Division filter — admin/circle only --}}
+            @if($divisions->isNotEmpty())
+            <div class="col-6 col-md-2">
+                <select name="division_id" class="form-select form-select-sm">
+                    <option value="">All Divisions</option>
+                    @foreach($divisions as $division)
+                    <option value="{{ $division->id }}" {{ request('division_id') == $division->id ? 'selected' : '' }}>
+                        {{ $division->name }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
+            {{-- Sub Division filter --}}
+            @if($subDivisions->isNotEmpty())
+            <div class="col-6 col-md-2">
+                <select name="sub_division_id" class="form-select form-select-sm">
+                    <option value="">All Sub Divs</option>
+                    @foreach($subDivisions as $sd)
+                    <option value="{{ $sd->id }}" {{ request('sub_division_id') == $sd->id ? 'selected' : '' }}>
+                        {{ $sd->name }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
+
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-search me-1"></i> Filter
+                </button>
+                <a href="{{ route('feeders.index') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-x-circle"></i> Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Feeder Table --}}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Feeder Name</th>
+                        <th>TND Code</th>
+                        <th>Division</th>
+                        <th>Sub Division</th>
+                        <th>Substation</th>
+                        <th>Category</th>
+                        <th class="text-center">Consumers</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Last Updated</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($feeders as $feeder)
+                    <tr>
+                        <td class="ps-3 text-muted small">{{ $feeders->firstItem() + $loop->index }}</td>
+                        <td class="fw-semibold">{{ $feeder->name }}</td>
+                        <td><code class="text-secondary">{{ $feeder->tnd_code }}</code></td>
+                        <td class="small">{{ $feeder->substation->subDivision->division->name ?? '—' }}</td>
+                        <td class="small">{{ $feeder->substation->subDivision->name ?? '—' }}</td>
+                        <td class="small">{{ $feeder->substation->name ?? '—' }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ $feeder->category }}</span></td>
+                        <td class="text-center small">{{ number_format($feeder->total_consumer) }}</td>
+                        <td class="text-center">
+                            @include('feeders.partials.status-badge', ['status' => $feeder->current_status])
+                        </td>
+                        <td class="text-center small text-muted">
+                            @if($feeder->last_updated_at)
+                                <span title="{{ $feeder->last_updated_at->format('d-M-Y H:i') }}">
+                                    {{ $feeder->last_updated_at->diffForHumans() }}
+                                </span>
+                                <br>
+                                <span class="text-muted" style="font-size:.75rem;">
+                                    {{ $feeder->lastUpdatedBy?->name ?? '—' }}
+                                </span>
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td class="text-center">
+                            @can('updateStatus', $feeder)
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#updateModal"
+                                    data-feeder-id="{{ $feeder->id }}"
+                                    data-feeder-name="{{ $feeder->name }}"
+                                    data-feeder-status="{{ $feeder->current_status }}">
+                                <i class="bi bi-pencil-square"></i> Update
+                            </button>
+                            @else
+                            <span class="text-muted small">—</span>
+                            @endcan
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="11" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            No feeders found.
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if($feeders->hasPages())
+    <div class="card-footer bg-white border-top-0">
+        {{ $feeders->links() }}
+    </div>
+    @endif
+</div>
+
+{{-- Update Status Modal --}}
+<div class="modal fade" id="updateModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Update Feeder Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="updateStatusForm" method="POST" action="">
+                @csrf
+                @method('PATCH')
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        Feeder: <strong id="modalFeederName"></strong>
+                    </p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">New Status <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @foreach(['fully_on' => ['Fully ON','success'], 'partially_on' => ['Partially ON','warning'], 'fully_off' => ['Fully OFF','danger']] as $val => [$label, $color])
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio"
+                                       name="status" id="status_{{ $val }}" value="{{ $val }}">
+                                <label class="form-check-label fw-semibold text-{{ $color }}" for="status_{{ $val }}">
+                                    {{ $label }}
+                                </label>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="remarks" class="form-label fw-semibold">Remarks</label>
+                        <textarea name="remarks" id="remarks" class="form-control" rows="3"
+                                  placeholder="Optional — reason for status change..."></textarea>
+                        <div class="form-text">Required when marking as OFF or PARTIAL.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i> Update Status
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+    const updateModal = document.getElementById('updateModal');
+    updateModal.addEventListener('show.bs.modal', function (event) {
+        const btn      = event.relatedTarget;
+        const id       = btn.dataset.feederId;
+        const name     = btn.dataset.feederName;
+        const status   = btn.dataset.feederStatus;
+
+        document.getElementById('modalFeederName').textContent = name;
+        document.getElementById('updateStatusForm').action = `/feeders/${id}/status`;
+
+        // Pre-select current status
+        const radio = document.getElementById('status_' + status);
+        if (radio) radio.checked = true;
+
+        document.getElementById('remarks').value = '';
+    });
+</script>
+@endpush
