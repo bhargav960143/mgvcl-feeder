@@ -48,31 +48,38 @@ class ImportFeederCsv extends Command
                 $feederName, $category, $tndCode, $totalConsumer, $totalTc
             ] = array_pad($row, 9, null);
 
+            $tndCode     = $this->sanitize($tndCode);
+            $feederName  = $this->sanitize($feederName);
+            $divisionName    = $this->sanitize($divisionName);
+            $subDivisionName = $this->sanitize($subDivisionName);
+            $ssName      = $this->sanitize($ssName);
+            $category    = $this->sanitize($category);
+
             if (empty($tndCode) || empty($feederName)) {
                 $skipped++;
                 continue;
             }
 
             $division = Division::firstOrCreate(
-                ['circle_id' => $circle->id, 'name' => trim($divisionName)]
+                ['circle_id' => $circle->id, 'name' => $divisionName]
             );
 
             $subDivision = SubDivision::firstOrCreate(
-                ['division_id' => $division->id, 'name' => trim($subDivisionName)]
+                ['division_id' => $division->id, 'name' => $subDivisionName]
             );
 
             $substation = Substation::firstOrCreate(
-                ['sub_division_id' => $subDivision->id, 'name' => trim($ssName)]
+                ['sub_division_id' => $subDivision->id, 'name' => $ssName]
             );
 
-            $exists = Feeder::where('tnd_code', trim($tndCode))->exists();
+            $exists = Feeder::where('tnd_code', $tndCode)->exists();
 
             Feeder::updateOrCreate(
-                ['tnd_code' => trim($tndCode)],
+                ['tnd_code' => $tndCode],
                 [
                     'substation_id'  => $substation->id,
-                    'name'           => trim($feederName),
-                    'category'       => trim($category),
+                    'name'           => $feederName,
+                    'category'       => $category,
                     'total_consumer' => (int) $totalConsumer,
                     'total_tc'       => (int) $totalTc,
                     // current_status intentionally not overwritten on re-import
@@ -87,5 +94,13 @@ class ImportFeederCsv extends Command
         $this->info("Import complete — Created: {$created} | Updated: {$updated} | Skipped: {$skipped}");
 
         return self::SUCCESS;
+    }
+
+    private function sanitize(?string $value): string
+    {
+        if ($value === null) return '';
+        // Strip invalid UTF-8 bytes (e.g. non-breaking space \xA0 from Excel CSV exports)
+        $clean = iconv('UTF-8', 'UTF-8//IGNORE', $value);
+        return trim($clean ?? '');
     }
 }
