@@ -5,6 +5,7 @@
 **Stack:** Laravel 11 + Blade + MySQL  
 **Goal:** Replace manual chain-of-command status updates with real-time, role-based feeder status management system  
 **Date:** 2026-06-04  
+**Last Updated:** 2026-06-04 — Added Circle level, revised roles per client feedback  
 
 ---
 
@@ -24,7 +25,7 @@ Pain points:
 
 Target flow:
 ```
-Field Staff / Substation Staff → direct web update → EVERYONE sees instantly
+Division / Sub Division Manager → direct web update → EVERYONE sees instantly
 ```
 
 ---
@@ -34,12 +35,16 @@ Field Staff / Substation Staff → direct web update → EVERYONE sees instantly
 **390 feeders** across hierarchy:
 
 ```
-Division (3)
-  └─ Sub Division (≈15)
-       └─ Substation / SS Name (≈30)
-            └─ Feeder (390 total)
-                  └─ Status: fully_on | partially_on | fully_off
+Circle (1 — Vadodara / as defined by MGVCL)
+  └─ Division (3)
+       └─ Sub Division (≈15)
+            └─ Substation / SS Name (≈30)
+                 └─ Feeder (390 total)
+                       └─ Status: fully_on | partially_on | fully_off
 ```
+
+> **Note:** CSV has no Circle column. Circle(s) must be created manually by admin before importing.  
+> All 3 current divisions likely belong to one circle — confirm with client.
 
 **Divisions:**
 - Lalbagh
@@ -88,17 +93,30 @@ Phase 2 option: add Soketi (self-hosted WebSocket) for true push updates.
 
 ## 4. Database Schema
 
-### 4.1 `divisions`
+### 4.1 `circles` ← NEW top-level entity
 ```sql
-CREATE TABLE divisions (
-    id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name      VARCHAR(100) NOT NULL UNIQUE,
+CREATE TABLE circles (
+    id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL
 );
 ```
 
-### 4.2 `sub_divisions`
+### 4.2 `divisions`
+```sql
+CREATE TABLE divisions (
+    id        BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    circle_id BIGINT UNSIGNED NOT NULL,
+    name      VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP NULL,
+    updated_at TIMESTAMP NULL,
+    FOREIGN KEY (circle_id) REFERENCES circles(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_division (circle_id, name)
+);
+```
+
+### 4.3 `sub_divisions`
 ```sql
 CREATE TABLE sub_divisions (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -111,7 +129,7 @@ CREATE TABLE sub_divisions (
 );
 ```
 
-### 4.3 `substations`
+### 4.4 `substations` (managed by circle role only)
 ```sql
 CREATE TABLE substations (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -124,7 +142,7 @@ CREATE TABLE substations (
 );
 ```
 
-### 4.4 `feeders`
+### 4.5 `feeders` (managed by circle role only)
 ```sql
 CREATE TABLE feeders (
     id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -146,7 +164,7 @@ CREATE TABLE feeders (
 );
 ```
 
-### 4.5 `feeder_status_logs` (audit trail — never delete)
+### 4.6 `feeder_status_logs` (audit trail — never delete)
 ```sql
 CREATE TABLE feeder_status_logs (
     id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -163,14 +181,19 @@ CREATE TABLE feeder_status_logs (
 );
 ```
 
-### 4.6 `users` (Laravel default + extensions)
+### 4.7 `users` (Laravel default + extensions)
 ```sql
 -- Add to default users table migration:
-ALTER TABLE users ADD COLUMN jurisdiction_type ENUM('division','sub_division','substation','global') NOT NULL DEFAULT 'global';
+ALTER TABLE users ADD COLUMN jurisdiction_type ENUM('global','circle','division','sub_division') NOT NULL DEFAULT 'global';
 ALTER TABLE users ADD COLUMN jurisdiction_id   BIGINT UNSIGNED NULL;
 ALTER TABLE users ADD COLUMN employee_id       VARCHAR(50) NULL UNIQUE;
 ALTER TABLE users ADD COLUMN phone             VARCHAR(15) NULL;
--- jurisdiction_id points to divisions.id OR sub_divisions.id OR substations.id based on jurisdiction_type
+-- jurisdiction_id maps to:
+--   global        → NULL (admin sees everything)
+--   circle        → circles.id
+--   division      → divisions.id
+--   sub_division  → sub_divisions.id
+-- No substation-level user accounts (removed per client feedback 2026-06-04)
 ```
 
 ### 4.7 `notifications` (Laravel built-in table)
@@ -184,12 +207,13 @@ Used for email/SMS alerts when feeder goes to `fully_off`.
 ## 5. Eloquent Relationships
 
 ```
-Division       hasMany SubDivision
-SubDivision    belongsTo Division, hasMany Substation
-Substation     belongsTo SubDivision, hasMany Feeder
-Feeder         belongsTo Substation, hasMany FeederStatusLog, belongsTo User (last_updated_by)
+Circle          hasMany Division
+Division        belongsTo Circle, hasMany SubDivision
+SubDivision     belongsTo Division, hasMany Substation
+Substation      belongsTo SubDivision, hasMany Feeder
+Feeder          belongsTo Substation, hasMany FeederStatusLog, belongsTo User (last_updated_by)
 FeederStatusLog belongsTo Feeder, belongsTo User (updated_by)
-User           hasMany FeederStatusLog
+User            hasMany FeederStatusLog
 ```
 
 ---
@@ -198,43 +222,58 @@ User           hasMany FeederStatusLog
 
 Using **Spatie Laravel Permission** package.
 
+> **Changed 2026-06-04:** Removed `super_admin`, `substation_manager`, `field_staff`. Added `admin` and `circle`. Status update permission moved to division & sub-division level.
+
 ### 6.1 Role Definitions
 
-| Role                  | Jurisdiction Scope        | Description |
-|-----------------------|---------------------------|-------------|
-| `super_admin`         | All data, all divisions   | MGVCL senior staff, full access |
-| `division_manager`    | One division              | Sees all feeders in their division |
-| `sub_division_manager`| One sub division          | Sees feeders in their sub division |
-| `substation_manager`  | One or more substations   | Can update feeder status |
-| `field_staff`         | One or more substations   | Can update feeder status |
+| Role                  | Jurisdiction Scope  | Description |
+|-----------------------|---------------------|-------------|
+| `admin`               | Everything (global) | Full access — user management, all CRUD, import, reports |
+| `circle`              | One circle          | Manages substation + feeder master data (CRUD); views all feeders in circle |
+| `division_manager`    | One division        | Views feeder list; updates feeder status |
+| `sub_division_manager`| One sub division    | Views feeder list; updates feeder status |
+
+**Removed roles:** `super_admin`, `substation_manager`, `field_staff` — no substation-level user accounts.
 
 ### 6.2 Permission Matrix
 
-| Permission                  | super_admin | division_mgr | sub_div_mgr | substation_mgr | field_staff |
-|-----------------------------|:-----------:|:------------:|:-----------:|:--------------:|:-----------:|
-| `view-all-divisions`        | ✅          | ❌           | ❌          | ❌             | ❌          |
-| `view-division`             | ✅          | ✅           | ✅          | ✅             | ✅          |
-| `view-sub-division`         | ✅          | ✅           | ✅          | ✅             | ✅          |
-| `view-substation`           | ✅          | ✅           | ✅          | ✅             | ✅          |
-| `view-feeder`               | ✅          | ✅           | ✅          | ✅             | ✅          |
-| `update-feeder-status`      | ✅          | ❌           | ❌          | ✅             | ✅          |
-| `view-status-logs`          | ✅          | ✅           | ✅          | ✅             | ❌          |
-| `export-report`             | ✅          | ✅           | ✅          | ❌             | ❌          |
-| `manage-users`              | ✅          | ❌           | ❌          | ❌             | ❌          |
-| `import-csv`                | ✅          | ❌           | ❌          | ❌             | ❌          |
+| Permission                       | admin | circle | division_mgr | sub_div_mgr |
+|----------------------------------|:-----:|:------:|:------------:|:-----------:|
+| `view-dashboard`                 | ✅    | ✅     | ✅           | ✅          |
+| `view-feeder-list`               | ✅    | ✅     | ✅           | ✅          |
+| `view-feeder-detail`             | ✅    | ✅     | ✅           | ✅          |
+| `update-feeder-status`           | ✅    | ✅     | ✅           | ✅          |
+| `view-status-logs`               | ✅    | ✅     | ✅           | ✅          |
+| `manage-substation`              | ✅    | ✅     | ❌           | ❌          |
+| `manage-feeder`                  | ✅    | ✅     | ❌           | ❌          |
+| `manage-circle`                  | ✅    | ❌     | ❌           | ❌          |
+| `manage-division`                | ✅    | ❌     | ❌           | ❌          |
+| `manage-sub-division`            | ✅    | ❌     | ❌           | ❌          |
+| `export-report`                  | ✅    | ✅     | ✅           | ✅          |
+| `manage-users`                   | ✅    | ❌     | ❌           | ❌          |
+| `import-csv`                     | ✅    | ❌     | ❌           | ❌          |
 
 ### 6.3 Data Scoping Rules
 
-Every query is scoped to the user's jurisdiction — enforced in middleware, not just views:
+Every query scoped to user's jurisdiction — enforced in middleware + policy, never just views:
 
 ```php
-// Example: SubDivisionManager can ONLY see their sub_division's data
-// Enforced via Global Scope or Policy — not via if/else in controller
-
-// User::jurisdiction_type = 'sub_division'
-// User::jurisdiction_id   = sub_divisions.id
-// → All feeder queries auto-filtered via FeederScope
+// jurisdiction_type = 'circle'       → filter feeders WHERE division.circle_id = user.jurisdiction_id
+// jurisdiction_type = 'division'     → filter feeders WHERE substation.sub_division.division_id = user.jurisdiction_id
+// jurisdiction_type = 'sub_division' → filter feeders WHERE substation.sub_division_id = user.jurisdiction_id
+// jurisdiction_type = 'global'       → no filter (admin only)
 ```
+
+**Rule:** A `division_manager` cannot view or update any feeder outside their division — enforced at DB query level, not UI.
+
+### 6.4 What `circle` role manages (CRUD)
+
+Circle users are the data stewards. They:
+- Create / edit / delete Substations within their circle
+- Create / edit / delete Feeders within their circle
+- Can also update feeder status
+- Cannot manage Circles, Divisions, or Sub Divisions (admin-only master data)
+- Cannot manage users
 
 ---
 
@@ -250,13 +289,18 @@ app/
 │   ├── Controllers/
 │   │   ├── Auth/
 │   │   │   └── LoginController.php
-│   │   ├── DashboardController.php      # role-aware dashboard
-│   │   ├── FeederController.php         # list, show, status update
-│   │   ├── FeederStatusLogController.php # audit log view
-│   │   ├── ReportController.php         # export CSV/PDF
-│   │   └── Admin/
-│   │       ├── UserController.php       # manage users + assign jurisdiction
-│   │       └── DivisionController.php   # manage master data
+│   │   ├── DashboardController.php          # role-aware dashboard
+│   │   ├── FeederController.php             # list, show, status update
+│   │   ├── FeederStatusLogController.php    # audit log view
+│   │   ├── ReportController.php             # export CSV/PDF
+│   │   ├── Master/                          # circle role: substation + feeder CRUD
+│   │   │   ├── SubstationController.php
+│   │   │   └── FeederMasterController.php
+│   │   └── Admin/                           # admin role only
+│   │       ├── UserController.php           # manage users + assign jurisdiction
+│   │       ├── CircleController.php         # manage circles
+│   │       ├── DivisionController.php       # manage divisions (assign to circle)
+│   │       └── SubDivisionController.php    # manage sub divisions
 │   │
 │   ├── Middleware/
 │   │   └── ScopeToJurisdiction.php      # auto-scope queries per user role
@@ -266,6 +310,7 @@ app/
 │       └── ImportCsvRequest.php
 │
 ├── Models/
+│   ├── Circle.php
 │   ├── Division.php
 │   ├── SubDivision.php
 │   ├── Substation.php
@@ -287,7 +332,8 @@ app/
 
 database/
 ├── migrations/
-│   ├── create_divisions_table.php
+│   ├── create_circles_table.php
+│   ├── create_divisions_table.php          # has circle_id FK
 │   ├── create_sub_divisions_table.php
 │   ├── create_substations_table.php
 │   ├── create_feeders_table.php
@@ -314,13 +360,29 @@ resources/
     │       └── status-form.blade.php    # update form (shown only to authorized)
     ├── reports/
     │   └── index.blade.php
-    └── admin/
+    ├── master/                              # circle role views
+    │   ├── substations/
+    │   │   ├── index.blade.php
+    │   │   ├── create.blade.php
+    │   │   └── edit.blade.php
+    │   └── feeders/
+    │       ├── index.blade.php
+    │       ├── create.blade.php
+    │       └── edit.blade.php
+    └── admin/                               # admin role views
         ├── users/
         │   ├── index.blade.php
         │   ├── create.blade.php
         │   └── edit.blade.php
-        └── divisions/
-            └── index.blade.php
+        ├── circles/
+        │   ├── index.blade.php
+        │   └── create.blade.php
+        ├── divisions/
+        │   ├── index.blade.php
+        │   └── create.blade.php
+        └── sub-divisions/
+            ├── index.blade.php
+            └── create.blade.php
 
 routes/
 ├── web.php                              # all app routes
@@ -364,10 +426,18 @@ Route::middleware(['auth', 'scope.jurisdiction'])->group(function () {
          ->name('reports.export')
          ->middleware('can:export-report');
 
-    // Admin
+    // Circle — substation + feeder master data management
+    Route::middleware('can:manage-substation')->prefix('master')->name('master.')->group(function () {
+        Route::resource('substations', SubstationController::class);
+        Route::resource('feeders', FeederController::class)->except(['show']); // show is public to all roles
+    });
+
+    // Admin only
     Route::middleware('can:manage-users')->prefix('admin')->name('admin.')->group(function () {
         Route::resource('users', UserController::class);
-        Route::resource('divisions', DivisionController::class)->only(['index', 'show']);
+        Route::resource('circles', CircleController::class);
+        Route::resource('divisions', DivisionController::class);
+        Route::resource('sub-divisions', SubDivisionController::class);
     });
 });
 
@@ -414,8 +484,9 @@ class FeederStatusService
 
     private function notifyManagers(Feeder $feeder): void
     {
-        // Queue notification to division_manager and sub_division_manager of this feeder
-        $managers = User::whereIn('role', ['division_manager', 'sub_division_manager'])
+        // Notify circle user + division_manager whose jurisdiction covers this feeder
+        // sub_division_manager already made the update so they know — notify upward only
+        $managers = User::whereIn('jurisdiction_type', ['global', 'circle', 'division'])
             ->whereJurisdictionCovers($feeder)
             ->get();
 
@@ -435,15 +506,32 @@ class FeederPolicy
 {
     public function updateStatus(User $user, Feeder $feeder): bool
     {
-        // super_admin can update anything
-        if ($user->hasRole('super_admin')) return true;
+        if ($user->hasRole('admin')) return true;
 
-        // substation_manager / field_staff — only their substation's feeders
-        if ($user->hasAnyRole(['substation_manager', 'field_staff'])) {
-            return $feeder->substation_id === $user->jurisdiction_id;
+        if ($user->hasRole('circle')) {
+            // circle user: feeder must be within their circle
+            return $feeder->substation->subDivision->division->circle_id === $user->jurisdiction_id;
+        }
+
+        if ($user->hasRole('division_manager')) {
+            return $feeder->substation->subDivision->division_id === $user->jurisdiction_id;
+        }
+
+        if ($user->hasRole('sub_division_manager')) {
+            return $feeder->substation->sub_division_id === $user->jurisdiction_id;
         }
 
         return false;
+    }
+
+    public function manageSubstation(User $user): bool
+    {
+        return $user->hasAnyRole(['admin', 'circle']);
+    }
+
+    public function manageFeeder(User $user): bool
+    {
+        return $user->hasAnyRole(['admin', 'circle']);
     }
 }
 ```
@@ -652,29 +740,35 @@ Export via Laravel Excel (Maatwebsite) or simple CSV stream (no package needed f
 
 ### Phase 1 — Foundation (Week 1-2)
 - [ ] Laravel 11 project setup
-- [ ] Database migrations (all 5 tables)
-- [ ] Spatie permission: roles + permissions seeded
-- [ ] Auth: login/logout
-- [ ] CSV import artisan command + data migration
+- [ ] Database migrations (6 tables: circles, divisions, sub_divisions, substations, feeders, feeder_status_logs)
+- [ ] Spatie permission: 4 roles + permissions seeded (admin, circle, division_manager, sub_division_manager)
+- [ ] Auth: login/logout (employee_id + password)
+- [ ] CSV import artisan command — admin creates circle first, then import seeds rest
 
 ### Phase 2 — Core Feature (Week 2-3)
-- [ ] FeederPolicy + ScopeToJurisdiction middleware
-- [ ] Feeder list view (with filters)
-- [ ] Feeder status update (PATCH + modal)
-- [ ] FeederStatusService (update + log)
+- [ ] FeederPolicy + ScopeToJurisdiction middleware (circle/division/sub_division scoping)
+- [ ] Feeder list view (with filters: circle, division, sub-division, status, category)
+- [ ] Feeder status update (PATCH + modal) — available to all 4 roles
+- [ ] FeederStatusService (update + log in transaction)
 - [ ] Audit log view
 
-### Phase 3 — Dashboard + Reports (Week 3-4)
+### Phase 3 — Circle Master Data (Week 3)
+- [ ] Substation CRUD (circle + admin)
+- [ ] Feeder CRUD (circle + admin)
+- [ ] Scoped to circle's jurisdiction on create/edit
+
+### Phase 4 — Dashboard + Reports (Week 3-4)
 - [ ] Role-aware dashboard with summary cards
 - [ ] AJAX polling (30s refresh)
 - [ ] Report export (CSV)
-- [ ] Email notifications on fully_off
+- [ ] Email notifications on fully_off (notify admin + circle + division_manager)
 
-### Phase 4 — Admin + Polish (Week 4-5)
-- [ ] User management (super_admin)
+### Phase 5 — Admin + Polish (Week 4-5)
+- [ ] User management (admin only): create users, assign role + jurisdiction
+- [ ] Circle / Division / Sub Division master management (admin only)
 - [ ] Mobile-responsive Blade (Bootstrap 5 or Tailwind)
 - [ ] Security headers middleware
-- [ ] Testing: feature tests for status update flow
+- [ ] Feature tests: status update flow, jurisdiction scoping
 
 ### Phase 5 — Optional Upgrades
 - [ ] Soketi + Laravel Echo (real-time push)
@@ -710,15 +804,17 @@ php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvid
 # Run migrations
 php artisan migrate
 
-# Seed roles + permissions
+# Seed roles + permissions (admin, circle, division_manager, sub_division_manager)
 php artisan db:seed --class=RolePermissionSeeder
 
-# Import CSV data
-php artisan feeder:import "C:/wamp64/www/tsp/mgvcl-feeder/Feeder power position.csv"
-
-# Create first super_admin user
+# Create first admin user + circle manually via tinker, then import CSV
 php artisan tinker
-# >>> User::create([...]) then assign role
+# >>> $circle = Circle::create(['name' => 'Vadodara Circle']);
+# >>> $user = User::create([...]);
+# >>> $user->assignRole('admin');
+
+# Import CSV data (circle must exist first)
+php artisan feeder:import "C:/wamp64/www/tsp/mgvcl-feeder/Feeder power position.csv" --circle="Vadodara Circle"
 ```
 
 MySQL DB: `mgvcl_feeder` | Charset: `utf8mb4` | Collation: `utf8mb4_unicode_ci`
@@ -735,4 +831,8 @@ MySQL DB: `mgvcl_feeder` | Charset: `utf8mb4` | Collation: `utf8mb4_unicode_ci`
 | Status model | Single enum on `feeders` + log table | Atomic update, full history, simple queries |
 | Jurisdiction scoping | Middleware + Policy (not just view) | Defense in depth — security at data layer |
 | CSV re-import | Does not overwrite current_status | Prevents wiping live data on re-import |
-| User creation | super_admin only | No self-registration risk for internal utility |
+| User creation | admin only | No self-registration risk for internal utility |
+| Hierarchy | Circle → Division → Sub Division → Substation → Feeder | Added circle level per client feedback 2026-06-04 |
+| Status update permission | All 4 roles (admin/circle/division/sub_division) | Client changed: division & sub-division now update status; substation_manager role removed |
+| Substation + Feeder CRUD | circle + admin only | Field data stewardship owned by circle, not field staff |
+| Removed roles | `substation_manager`, `field_staff`, `super_admin` | Client decision 2026-06-04 — replaced by `admin` + `circle` |
