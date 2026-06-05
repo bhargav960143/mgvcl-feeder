@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h4 class="mb-0 fw-bold">Feeder Status</h4>
-        <small class="text-muted">{{ $feeders->total() }} feeders found</small>
+        <small class="text-muted">{{ count($feeders) }} feeders found</small>
     </div>
     @can('export-report')
     <a href="{{ route('reports.export') }}" class="btn btn-outline-secondary btn-sm">
@@ -91,7 +91,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="feedersTable" data-dt>
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">#</th>
@@ -110,7 +110,7 @@
                 <tbody>
                     @forelse($feeders as $feeder)
                     <tr>
-                        <td class="ps-3 text-muted small">{{ $feeders->firstItem() + $loop->index }}</td>
+                        <td class="ps-3 text-muted small">{{ $loop->iteration }}</td>
                         <td class="fw-semibold">{{ $feeder->name }}</td>
                         <td><code class="text-secondary">{{ $feeder->tnd_code }}</code></td>
                         <td class="small">{{ $feeder->substation->subDivision->division->name ?? '—' }}</td>
@@ -168,11 +168,6 @@
         </div>
     </div>
 
-    @if($feeders->hasPages())
-    <div class="card-footer bg-white border-top-0">
-        {{ $feeders->links() }}
-    </div>
-    @endif
 </div>
 
 {{-- Update Status Modal --}}
@@ -227,17 +222,27 @@
 
 @push('scripts')
 <script>
-    const updateModal = document.getElementById('updateModal');
-    updateModal.addEventListener('show.bs.modal', function (event) {
-        const btn      = event.relatedTarget;
-        const id       = btn.dataset.feederId;
-        const name     = btn.dataset.feederName;
-        const status   = btn.dataset.feederStatus;
+    // Override DataTables for feeder table — disable built-in search (server-side filters handle it)
+    $(function () {
+        $('#feedersTable').DataTable({
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100, 200],
+            order: [],
+            searching: true,
+            language: { search: 'Quick search:', zeroRecords: 'No feeders found.' }
+        });
+    });
+
+    // Event delegation — DataTables re-renders rows, so bind to document
+    $(document).on('click', '[data-bs-target="#updateModal"]', function () {
+        const btn    = this;
+        const id     = btn.dataset.feederId;
+        const name   = btn.dataset.feederName;
+        const status = btn.dataset.feederStatus;
 
         document.getElementById('modalFeederName').textContent = name;
         document.getElementById('updateStatusForm').action = `/feeders/${id}/status`;
 
-        // Pre-select current status
         const radio = document.getElementById('status_' + status);
         if (radio) radio.checked = true;
 

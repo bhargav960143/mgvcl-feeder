@@ -20,7 +20,7 @@ class SubDivisionController extends Controller
             $query->whereHas('division', fn($q) => $q->where('circle_id', $user->jurisdiction_id));
         }
 
-        $subDivisions = $query->paginate(20);
+        $subDivisions = $query->get();
         return view('master.sub-divisions.index', compact('subDivisions'));
     }
 

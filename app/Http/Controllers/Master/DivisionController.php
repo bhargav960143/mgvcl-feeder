@@ -20,7 +20,7 @@ class DivisionController extends Controller
             $query->where('circle_id', $user->jurisdiction_id);
         }
 
-        $divisions = $query->paginate(20);
+        $divisions = $query->get();
         return view('master.divisions.index', compact('divisions'));
     }
 

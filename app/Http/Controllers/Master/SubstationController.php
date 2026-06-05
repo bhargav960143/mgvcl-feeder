@@ -27,7 +27,7 @@ class SubstationController extends Controller
             $query->where('sub_division_id', $request->sub_division_id);
         }
 
-        $substations  = $query->paginate(25);
+        $substations  = $query->get();
         $subDivisions = $this->getSubDivisions($user);
 
         return view('master.substations.index', compact('substations', 'subDivisions'));

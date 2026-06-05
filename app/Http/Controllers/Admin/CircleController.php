@@ -12,7 +12,7 @@ class CircleController extends Controller
 {
     public function index(): View
     {
-        $circles = Circle::withCount('divisions')->orderBy('name')->paginate(20);
+        $circles = Circle::withCount('divisions')->orderBy('name')->get();
         return view('admin.circles.index', compact('circles'));
     }
 

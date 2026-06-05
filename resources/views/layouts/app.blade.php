@@ -7,6 +7,7 @@
     <title>@yield('title', 'MGVCL Feeder')</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <style>
         :root { --sidebar-width: 240px; --topbar-height: 56px; }
         body { background: #f0f4f8; }
@@ -155,6 +156,20 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(function () {
+    $('table[data-dt]').DataTable({
+        pageLength: 25,
+        lengthMenu: [10, 25, 50, 100, 200],
+        order: [],
+        language: { search: 'Search:', zeroRecords: 'No records found.' },
+        columnDefs: [{ orderable: false, targets: '_all' === 'actions' ? -1 : [] }]
+    });
+});
+</script>
 @stack('scripts')
 </body>
 </html>

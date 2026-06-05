@@ -9,7 +9,7 @@
 </div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0" data-dt>
             <thead class="table-light">
                 <tr>
                     <th class="ps-3">#</th><th>Division Name</th><th>Circle</th>
@@ -19,7 +19,7 @@
             <tbody>
                 @forelse($divisions as $div)
                 <tr>
-                    <td class="ps-3 text-muted small">{{ $divisions->firstItem() + $loop->index }}</td>
+                    <td class="ps-3 text-muted small">{{ $loop->iteration }}</td>
                     <td class="fw-semibold">{{ $div->name }}</td>
                     <td class="small text-muted">{{ $div->circle->name }}</td>
                     <td class="text-center">{{ $div->sub_divisions_count }}</td>
@@ -38,6 +38,5 @@
             </tbody>
         </table>
     </div>
-    @if($divisions->hasPages())<div class="card-footer bg-white">{{ $divisions->links() }}</div>@endif
 </div>
 @endsection

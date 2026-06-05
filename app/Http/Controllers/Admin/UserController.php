@@ -35,9 +35,9 @@ class UserController extends Controller
                     });
                 })
                 ->orderBy('name')
-                ->paginate(20);
+                ->get();
         } else {
-            $users = User::with('roles')->orderBy('name')->paginate(20);
+            $users = User::with('roles')->orderBy('name')->get();
         }
 
         return view('admin.users.index', compact('users'));

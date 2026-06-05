@@ -28,7 +28,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" data-dt>
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">#</th><th>Feeder Name</th><th>TND Code</th>
@@ -40,7 +40,7 @@
                 <tbody>
                     @forelse($feeders as $feeder)
                     <tr>
-                        <td class="ps-3 text-muted small">{{ $feeders->firstItem() + $loop->index }}</td>
+                        <td class="ps-3 text-muted small">{{ $loop->iteration }}</td>
                         <td class="fw-semibold">{{ $feeder->name }}</td>
                         <td><code>{{ $feeder->tnd_code }}</code></td>
                         <td class="small">{{ $feeder->substation->name }}</td>
@@ -63,6 +63,5 @@
             </table>
         </div>
     </div>
-    @if($feeders->hasPages())<div class="card-footer bg-white">{{ $feeders->links() }}</div>@endif
 </div>
 @endsection

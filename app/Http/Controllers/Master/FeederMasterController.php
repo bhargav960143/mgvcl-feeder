@@ -27,7 +27,7 @@ class FeederMasterController extends Controller
             $query->where('substation_id', $request->substation_id);
         }
 
-        $feeders     = $query->paginate(25);
+        $feeders     = $query->get();
         $substations = $this->getSubstations($user);
         $categories  = ['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'];
 

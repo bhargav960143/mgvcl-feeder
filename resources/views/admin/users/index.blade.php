@@ -11,7 +11,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" data-dt>
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">#</th>
@@ -26,7 +26,7 @@
                 <tbody>
                     @forelse($users as $user)
                     <tr>
-                        <td class="ps-3 text-muted small">{{ $users->firstItem() + $loop->index }}</td>
+                        <td class="ps-3 text-muted small">{{ $loop->iteration }}</td>
                         <td class="fw-semibold">{{ $user->name }}</td>
                         <td><code>{{ $user->employee_id ?? '—' }}</code></td>
                         <td class="small">{{ $user->email }}</td>
@@ -59,8 +59,5 @@
             </table>
         </div>
     </div>
-    @if($users->hasPages())
-    <div class="card-footer bg-white">{{ $users->links() }}</div>
-    @endif
 </div>
 @endsection

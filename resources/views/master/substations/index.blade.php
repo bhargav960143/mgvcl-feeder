@@ -27,7 +27,7 @@
 </div>
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0" data-dt>
             <thead class="table-light">
                 <tr>
                     <th class="ps-3">#</th><th>Substation Name</th><th>Sub Division</th><th>Division</th>
@@ -37,7 +37,7 @@
             <tbody>
                 @forelse($substations as $ss)
                 <tr>
-                    <td class="ps-3 text-muted small">{{ $substations->firstItem() + $loop->index }}</td>
+                    <td class="ps-3 text-muted small">{{ $loop->iteration }}</td>
                     <td class="fw-semibold">{{ $ss->name }}</td>
                     <td class="small">{{ $ss->subDivision->name }}</td>
                     <td class="small text-muted">{{ $ss->subDivision->division->name }}</td>
@@ -57,6 +57,5 @@
             </tbody>
         </table>
     </div>
-    @if($substations->hasPages())<div class="card-footer bg-white">{{ $substations->links() }}</div>@endif
 </div>
 @endsection

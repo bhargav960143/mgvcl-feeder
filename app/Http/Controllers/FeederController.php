@@ -61,7 +61,7 @@ class FeederController extends Controller
             );
         }
 
-        $feeders = $query->paginate(25)->withQueryString();
+        $feeders = $query->get();
 
         // Build filter dropdowns (scoped to jurisdiction)
         $divisions    = $this->getDivisionsForFilter($user);
