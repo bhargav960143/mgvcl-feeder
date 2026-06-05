@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\FeederStatusUpdated;
 use App\Models\Feeder;
 use App\Models\FeederStatusLog;
 use App\Models\User;
@@ -28,5 +29,8 @@ class FeederStatusService
                 'updated_by' => $updatedBy->id,
             ]);
         });
+
+        $feeder->load('lastUpdatedBy');
+        FeederStatusUpdated::dispatch($feeder);
     }
 }

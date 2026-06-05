@@ -118,10 +118,10 @@
                         <td class="small">{{ $feeder->substation->name ?? '—' }}</td>
                         <td><span class="badge bg-light text-dark border">{{ $feeder->category }}</span></td>
                         <td class="text-center small">{{ number_format($feeder->total_consumer) }}</td>
-                        <td class="text-center">
+                        <td class="text-center feeder-status-cell">
                             @include('feeders.partials.status-badge', ['status' => $feeder->current_status])
                         </td>
-                        <td class="text-center small text-muted">
+                        <td class="text-center small text-muted feeder-time-cell">
                             @if($feeder->last_updated_at)
                                 <span title="{{ $feeder->last_updated_at->format('d-M-Y H:i') }}">
                                     {{ $feeder->last_updated_at->diffForHumans() }}
@@ -245,6 +245,36 @@
             }
             hiddenAt = null;
         }
+    });
+
+    // Live status updates via Reverb WebSocket
+    const statusMap = {
+        fully_on:     { cls: 'badge-fully-on',     label: 'Fully ON'     },
+        partially_on: { cls: 'badge-partially-on', label: 'Partially ON' },
+        fully_off:    { cls: 'badge-fully-off',     label: 'Fully OFF'    },
+    };
+
+    window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
+        const btn = document.querySelector(`[data-feeder-id="${data.feeder_id}"]`);
+        if (!btn) return;
+
+        const row = btn.closest('tr');
+        const s   = statusMap[data.new_status] ?? { cls: 'bg-secondary', label: data.new_status };
+
+        // Update status badge cell
+        const statusCell = row.querySelector('.feeder-status-cell');
+        if (statusCell) {
+            statusCell.innerHTML = `<span class="badge ${s.cls}" style="font-size:.8rem;padding:.35em .65em;">${s.label}</span>`;
+        }
+
+        // Update last-updated cell
+        const timeCell = row.querySelector('.feeder-time-cell');
+        if (timeCell) {
+            timeCell.innerHTML = `<span>${data.last_updated_at}</span><br><span class="text-muted" style="font-size:.75rem;">${data.updated_by}</span>`;
+        }
+
+        // Keep button data-attribute in sync for modal
+        btn.dataset.feederStatus = data.new_status;
     });
 
     // show.bs.modal fires after Bootstrap resolves relatedTarget — safe with DataTables re-renders

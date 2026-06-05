@@ -157,6 +157,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.16.1/dist/echo.iife.js"></script>
+<script>
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: '{{ env("REVERB_APP_KEY") }}',
+    wsHost: '{{ env("REVERB_HOST", "localhost") }}',
+    wsPort: {{ env("REVERB_PORT", 8080) }},
+    wssPort: {{ env("REVERB_PORT", 8080) }},
+    forceTLS: {{ env("REVERB_SCHEME", "http") === "https" ? "true" : "false" }},
+    enabledTransports: ['ws', 'wss'],
+});
+</script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 <script>
