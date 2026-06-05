@@ -2,18 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Feeder;
 use App\Models\Division;
+use App\Models\Feeder;
+use App\Models\SubDivision;
+use App\Models\Substation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function index(Request $request): View
     {
-        $user    = $request->user();
-        $summary = $this->buildSummary($user);
+        $user      = $request->user();
+        $summary   = $this->buildSummary($user);
         $divisions = $this->getDivisions($user);
 
         return view('dashboard.index', compact('summary', 'divisions'));
@@ -21,8 +24,7 @@ class DashboardController extends Controller
 
     public function summary(Request $request): JsonResponse
     {
-        $user = $request->user();
-        return response()->json($this->buildSummary($user));
+        return response()->json($this->buildSummary($request->user()));
     }
 
     private function buildSummary($user): array
@@ -30,39 +32,43 @@ class DashboardController extends Controller
         $query = Feeder::query();
         $this->applyJurisdictionScope($query, $user);
 
-        $total      = (clone $query)->count();
-        $fullyOn    = (clone $query)->where('current_status', 'fully_on')->count();
-        $partialOn  = (clone $query)->where('current_status', 'partially_on')->count();
-        $fullyOff   = (clone $query)->where('current_status', 'fully_off')->count();
+        $row = (clone $query)->selectRaw("
+            COUNT(*) as total,
+            SUM(current_status = 'fully_on')    as fullyOn,
+            SUM(current_status = 'partially_on') as partialOn,
+            SUM(current_status = 'fully_off')   as fullyOff
+        ")->first();
 
-        return compact('total', 'fullyOn', 'partialOn', 'fullyOff');
+        return [
+            'total'     => (int) $row->total,
+            'fullyOn'   => (int) $row->fullyOn,
+            'partialOn' => (int) $row->partialOn,
+            'fullyOff'  => (int) $row->fullyOff,
+        ];
     }
 
-    private function getDivisions($user): \Illuminate\Database\Eloquent\Collection
+    private function getDivisions($user): \Illuminate\Support\Collection
     {
-        $query = Division::withCount([
-            'subDivisions as total_feeders' => fn($q) => $q->join('substations', 'substations.sub_division_id', 'sub_divisions.id')
-                ->join('feeders', 'feeders.substation_id', 'substations.id')
-                ->select(\DB::raw('count(feeders.id)')),
-            'subDivisions as feeders_on' => fn($q) => $q->join('substations', 'substations.sub_division_id', 'sub_divisions.id')
-                ->join('feeders', 'feeders.substation_id', 'substations.id')
-                ->where('feeders.current_status', 'fully_on')
-                ->select(\DB::raw('count(feeders.id)')),
-            'subDivisions as feeders_partial' => fn($q) => $q->join('substations', 'substations.sub_division_id', 'sub_divisions.id')
-                ->join('feeders', 'feeders.substation_id', 'substations.id')
-                ->where('feeders.current_status', 'partially_on')
-                ->select(\DB::raw('count(feeders.id)')),
-            'subDivisions as feeders_off' => fn($q) => $q->join('substations', 'substations.sub_division_id', 'sub_divisions.id')
-                ->join('feeders', 'feeders.substation_id', 'substations.id')
-                ->where('feeders.current_status', 'fully_off')
-                ->select(\DB::raw('count(feeders.id)')),
-        ]);
+        $circleFilter = $user->hasRole('circle') ? $user->jurisdiction_id : null;
 
-        if ($user->hasRole('circle')) {
-            $query->where('circle_id', $user->jurisdiction_id);
-        }
+        $rows = DB::select("
+            SELECT
+                d.id,
+                d.name,
+                COUNT(f.id)                                        AS total_feeders,
+                SUM(f.current_status = 'fully_on')                AS feeders_on,
+                SUM(f.current_status = 'partially_on')            AS feeders_partial,
+                SUM(f.current_status = 'fully_off')               AS feeders_off
+            FROM divisions d
+            JOIN sub_divisions sd ON sd.division_id = d.id
+            JOIN substations ss   ON ss.sub_division_id = sd.id
+            JOIN feeders f        ON f.substation_id = ss.id
+            " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
+            GROUP BY d.id, d.name
+            ORDER BY d.name
+        ", $circleFilter ? [$circleFilter] : []);
 
-        return $query->get();
+        return collect($rows);
     }
 
     private function applyJurisdictionScope(\Illuminate\Database\Eloquent\Builder $query, $user): void
@@ -72,9 +78,15 @@ class DashboardController extends Controller
         }
 
         if ($user->hasRole('circle')) {
-            $query->whereHas('substation.subDivision.division', fn($q) =>
-                $q->where('circle_id', $user->jurisdiction_id)
-            );
+            $substationIds = Substation::whereIn(
+                'sub_division_id',
+                SubDivision::whereIn(
+                    'division_id',
+                    Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
+                )->pluck('id')
+            )->pluck('id');
+
+            $query->whereIn('substation_id', $substationIds);
         }
     }
 }

@@ -6,6 +6,7 @@ use App\Http\Requests\UpdateFeederStatusRequest;
 use App\Models\Division;
 use App\Models\Feeder;
 use App\Models\SubDivision;
+use App\Models\Substation;
 use App\Services\FeederStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,22 +22,17 @@ class FeederController extends Controller
         $query = Feeder::with(['substation.subDivision.division', 'lastUpdatedBy'])
             ->orderBy('name');
 
-        // Jurisdiction scoping
+        // Jurisdiction scoping via whereIn (avoids correlated EXISTS subqueries)
         if ($user->hasRole('circle')) {
-            $query->whereHas('substation.subDivision.division', fn($q) =>
-                $q->where('circle_id', $user->jurisdiction_id)
-            );
+            $query->whereIn('substation_id', $this->substationIdsForCircle($user->jurisdiction_id));
         } elseif ($user->hasRole('division_manager')) {
-            $query->whereHas('substation.subDivision', fn($q) =>
-                $q->where('division_id', $user->jurisdiction_id)
-            );
+            $query->whereIn('substation_id', $this->substationIdsForDivision($user->jurisdiction_id));
         } elseif ($user->hasRole('sub_division_manager')) {
-            $query->whereHas('substation', fn($q) =>
-                $q->where('sub_division_id', $user->jurisdiction_id)
+            $query->whereIn('substation_id',
+                Substation::where('sub_division_id', $user->jurisdiction_id)->pluck('id')
             );
         }
 
-        // Filters
         if ($request->filled('status')) {
             $query->where('current_status', $request->status);
         }
@@ -51,19 +47,16 @@ class FeederController extends Controller
             );
         }
         if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle'])) {
-            $query->whereHas('substation.subDivision', fn($q) =>
-                $q->where('division_id', $request->division_id)
-            );
+            $query->whereIn('substation_id', $this->substationIdsForDivision($request->division_id));
         }
         if ($request->filled('sub_division_id') && $user->hasAnyRole(['admin', 'circle', 'division_manager'])) {
-            $query->whereHas('substation', fn($q) =>
-                $q->where('sub_division_id', $request->sub_division_id)
+            $query->whereIn('substation_id',
+                Substation::where('sub_division_id', $request->sub_division_id)->pluck('id')
             );
         }
 
         $feeders = $query->get();
 
-        // Build filter dropdowns (scoped to jurisdiction)
         $divisions    = $this->getDivisionsForFilter($user);
         $subDivisions = $this->getSubDivisionsForFilter($user, $request->division_id);
 
@@ -92,6 +85,25 @@ class FeederController extends Controller
         return back()->with('success', "Feeder [{$feeder->name}] status updated to {$request->status}.");
     }
 
+    private function substationIdsForCircle(int $circleId): \Illuminate\Support\Collection
+    {
+        return Substation::whereIn(
+            'sub_division_id',
+            SubDivision::whereIn(
+                'division_id',
+                Division::where('circle_id', $circleId)->pluck('id')
+            )->pluck('id')
+        )->pluck('id');
+    }
+
+    private function substationIdsForDivision(int $divisionId): \Illuminate\Support\Collection
+    {
+        return Substation::whereIn(
+            'sub_division_id',
+            SubDivision::where('division_id', $divisionId)->pluck('id')
+        )->pluck('id');
+    }
+
     private function getDivisionsForFilter($user): \Illuminate\Database\Eloquent\Collection
     {
         if ($user->hasAnyRole(['admin', 'circle'])) {
@@ -112,7 +124,10 @@ class FeederController extends Controller
             if ($divisionId) {
                 $query->where('division_id', $divisionId);
             } elseif ($user->hasRole('circle')) {
-                $query->whereHas('division', fn($q) => $q->where('circle_id', $user->jurisdiction_id));
+                $query->whereIn(
+                    'division_id',
+                    Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
+                );
             }
             return $query->get();
         }
