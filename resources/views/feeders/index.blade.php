@@ -233,6 +233,20 @@
         });
     });
 
+    // Reload when tab regains focus — ensures stale status data is never shown
+    let hiddenAt = null;
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') {
+            hiddenAt = Date.now();
+        } else if (document.visibilityState === 'visible' && hiddenAt !== null) {
+            // Only reload if tab was hidden for at least 15 seconds
+            if (Date.now() - hiddenAt >= 15000) {
+                location.reload();
+            }
+            hiddenAt = null;
+        }
+    });
+
     // show.bs.modal fires after Bootstrap resolves relatedTarget — safe with DataTables re-renders
     document.getElementById('updateModal').addEventListener('show.bs.modal', function (event) {
         const btn    = event.relatedTarget;
