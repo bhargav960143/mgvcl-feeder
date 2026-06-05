@@ -1,0 +1,218 @@
+================================================================================
+MGVCL FEEDER — LARAVEL REVERB PRODUCTION SETUP
+Linux + LAMP + AWS Lightsail
+================================================================================
+
+--------------------------------------------------------------------------------
+1. .env ON SERVER
+--------------------------------------------------------------------------------
+
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+
+BROADCAST_DRIVER=reverb
+
+REVERB_APP_ID=719122
+REVERB_APP_KEY=imir1ejwntusxyoieotl
+REVERB_APP_SECRET=prufcluupmxki7q0lkph
+REVERB_HOST=0.0.0.0
+REVERB_PORT=8080
+REVERB_SCHEME=http       # reverb itself runs http; Apache handles SSL
+
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+
+NOTE: For HTTPS (client-facing only), set:
+  REVERB_HOST=yourdomain.com
+  REVERB_PORT=443
+  REVERB_SCHEME=https
+  (Reverb server itself still binds 0.0.0.0:8080 internally)
+
+
+--------------------------------------------------------------------------------
+2. AWS LIGHTSAIL FIREWALL — OPEN PORT 8080
+--------------------------------------------------------------------------------
+
+Lightsail has its own firewall separate from Linux ufw — open in BOTH.
+
+Lightsail Console:
+  Instance → Networking tab → IPv4 Firewall → Add rule
+  Application: Custom | Protocol: TCP | Port: 8080 → Save
+
+Linux ufw:
+  sudo ufw allow 8080/tcp
+  sudo ufw reload
+  sudo ufw status
+
+
+--------------------------------------------------------------------------------
+3. APACHE — ENABLE REQUIRED MODULES
+--------------------------------------------------------------------------------
+
+  sudo a2enmod proxy
+  sudo a2enmod proxy_http
+  sudo a2enmod proxy_wstunnel
+  sudo a2enmod rewrite
+  sudo a2enmod ssl
+  sudo systemctl restart apache2
+
+
+--------------------------------------------------------------------------------
+4. APACHE VIRTUALHOST — PROXY WEBSOCKET TO REVERB
+--------------------------------------------------------------------------------
+
+Edit: /etc/apache2/sites-available/mgvcl.conf
+
+----
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    DocumentRoot /var/www/html/mgvcl-feeder/public
+
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName yourdomain.com
+    DocumentRoot /var/www/html/mgvcl-feeder/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/yourdomain.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/yourdomain.com/privkey.pem
+
+    # WebSocket proxy — must come BEFORE general ProxyPass
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/app/(.*) ws://127.0.0.1:8080/app/$1 [P,L]
+
+    ProxyPass        /app ws://127.0.0.1:8080/app
+    ProxyPassReverse /app ws://127.0.0.1:8080/app
+
+    <Directory /var/www/html/mgvcl-feeder/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog  ${APACHE_LOG_DIR}/mgvcl-error.log
+    CustomLog ${APACHE_LOG_DIR}/mgvcl-access.log combined
+</VirtualHost>
+----
+
+  sudo a2ensite mgvcl.conf
+  sudo apache2ctl configtest      # must say Syntax OK
+  sudo systemctl reload apache2
+
+
+--------------------------------------------------------------------------------
+5. RUN REVERB AS SERVICE VIA SUPERVISOR
+--------------------------------------------------------------------------------
+
+Install supervisor:
+  sudo apt install supervisor -y
+
+Create config:
+  sudo nano /etc/supervisor/conf.d/reverb-mgvcl.conf
+
+----
+[program:reverb-mgvcl]
+process_name=%(program_name)s
+command=php /var/www/html/mgvcl-feeder/artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/www/html/mgvcl-feeder/storage/logs/reverb.log
+stdout_logfile_maxbytes=5MB
+stopwaitsecs=10
+----
+
+  sudo supervisorctl reread
+  sudo supervisorctl update
+  sudo supervisorctl start reverb-mgvcl
+  sudo supervisorctl status
+
+Service management:
+  sudo supervisorctl start   reverb-mgvcl
+  sudo supervisorctl stop    reverb-mgvcl
+  sudo supervisorctl restart reverb-mgvcl
+  sudo supervisorctl status  reverb-mgvcl
+
+Live log:
+  tail -f /var/www/html/mgvcl-feeder/storage/logs/reverb.log
+
+
+--------------------------------------------------------------------------------
+6. FILE PERMISSIONS
+--------------------------------------------------------------------------------
+
+  sudo chown -R www-data:www-data /var/www/html/mgvcl-feeder/storage
+  sudo chmod -R 775 /var/www/html/mgvcl-feeder/storage
+  sudo chmod -R 775 /var/www/html/mgvcl-feeder/bootstrap/cache
+
+
+--------------------------------------------------------------------------------
+7. FREE SSL VIA LET'S ENCRYPT
+--------------------------------------------------------------------------------
+
+  sudo apt install certbot python3-certbot-apache -y
+  sudo certbot --apache -d yourdomain.com
+
+Auto-renew is configured automatically by certbot.
+
+
+--------------------------------------------------------------------------------
+8. VERIFY
+--------------------------------------------------------------------------------
+
+  # Supervisor running
+  sudo supervisorctl status reverb-mgvcl
+
+  # Port listening
+  ss -tlnp | grep 8080
+
+  # Test WebSocket from server
+  curl -i -N \
+    -H "Connection: Upgrade" \
+    -H "Upgrade: websocket" \
+    -H "Host: yourdomain.com" \
+    http://127.0.0.1:8080/app/imir1ejwntusxyoieotl
+
+Browser console on feeder page should show:
+  Pusher : State changed : initialized -> connecting
+  Pusher : State changed : connecting -> connected
+
+
+--------------------------------------------------------------------------------
+9. DEPLOY CHECKLIST (every release)
+--------------------------------------------------------------------------------
+
+  cd /var/www/html/mgvcl-feeder
+  git pull origin main
+  composer install --no-dev --optimize-autoloader
+  php artisan config:cache
+  php artisan route:cache
+  php artisan view:cache
+  php artisan migrate --force
+  php artisan db:seed --class=RolePermissionSeeder --force
+  sudo supervisorctl restart reverb-mgvcl
+  sudo systemctl reload apache2
+
+
+--------------------------------------------------------------------------------
+10. REVERB CONNECTION SUMMARY
+--------------------------------------------------------------------------------
+
+  Internal:  Reverb binds  0.0.0.0:8080  (HTTP, managed by Supervisor)
+  External:  Browser connects to yourdomain.com:443 (HTTPS/WSS)
+  Proxy:     Apache receives WSS on 443, forwards as WS to 127.0.0.1:8080
+
+  Channel:   feeders (public)
+  Event:     App\Events\FeederStatusUpdated
+  Trigger:   App\Services\FeederStatusService::updateStatus()
+
+================================================================================
