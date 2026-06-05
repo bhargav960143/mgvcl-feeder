@@ -46,6 +46,7 @@ class RolePermissionSeeder extends Seeder
                 'manage-sub-division',
                 'manage-substation',
                 'manage-feeder',
+                'manage-users',
             ],
 
             'division_manager' => [
