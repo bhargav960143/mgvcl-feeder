@@ -233,9 +233,9 @@
         });
     });
 
-    // Event delegation — DataTables re-renders rows, so bind to document
-    $(document).on('click', '[data-bs-target="#updateModal"]', function () {
-        const btn    = this;
+    // show.bs.modal fires after Bootstrap resolves relatedTarget — safe with DataTables re-renders
+    document.getElementById('updateModal').addEventListener('show.bs.modal', function (event) {
+        const btn    = event.relatedTarget;
         const id     = btn.dataset.feederId;
         const name   = btn.dataset.feederName;
         const status = btn.dataset.feederStatus;
