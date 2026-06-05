@@ -76,18 +76,18 @@
                 </thead>
                 <tbody>
                     @forelse($divisions as $division)
-                    <tr>
+                    <tr data-division-id="{{ $division->id }}">
                         <td class="ps-3 fw-semibold">{{ $division->name }}</td>
                         <td class="text-center">
-                            <span class="badge badge-fully-on">{{ $division->feeders_on ?? 0 }}</span>
+                            <span class="badge badge-fully-on" data-div-status="fully_on">{{ $division->feeders_on ?? 0 }}</span>
                         </td>
                         <td class="text-center">
-                            <span class="badge badge-partially-on">{{ $division->feeders_partial ?? 0 }}</span>
+                            <span class="badge badge-partially-on" data-div-status="partially_on">{{ $division->feeders_partial ?? 0 }}</span>
                         </td>
                         <td class="text-center">
-                            <span class="badge badge-fully-off">{{ $division->feeders_off ?? 0 }}</span>
+                            <span class="badge badge-fully-off" data-div-status="fully_off">{{ $division->feeders_off ?? 0 }}</span>
                         </td>
-                        <td class="text-center text-muted">{{ $division->total_feeders ?? 0 }}</td>
+                        <td class="text-center text-muted" data-div-status="total">{{ $division->total_feeders ?? 0 }}</td>
                         <td>
                             <a href="{{ route('feeders.index', ['division_id' => $division->id]) }}"
                                class="btn btn-outline-primary btn-sm">
@@ -109,24 +109,47 @@
 
 @push('scripts')
 <script>
-    function refreshSummary() {
-        fetch('{{ route('dashboard.summary') }}', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('cardTotal').textContent   = data.total;
-            document.getElementById('cardOn').textContent      = data.fullyOn;
-            document.getElementById('cardPartial').textContent = data.partialOn;
-            document.getElementById('cardOff').textContent     = data.fullyOff;
+    // Map status key → summary card element id
+    const cardMap = {
+        fully_on:     'cardOn',
+        partially_on: 'cardPartial',
+        fully_off:    'cardOff',
+    };
 
-            const now = new Date();
-            document.getElementById('lastRefreshed').innerHTML =
-                `<i class="bi bi-arrow-repeat me-1"></i> Updated ${now.toLocaleTimeString()}`;
-        })
-        .catch(() => {});
+    function adjustCard(status, delta) {
+        const el = document.getElementById(cardMap[status]);
+        if (el) el.textContent = Math.max(0, parseInt(el.textContent) + delta);
     }
 
-    setInterval(refreshSummary, 30000);
+    function adjustDivisionRow(divisionId, oldStatus, newStatus) {
+        const row = document.querySelector(`tr[data-division-id="${divisionId}"]`);
+        if (!row) return;
+
+        const oldBadge = row.querySelector(`[data-div-status="${oldStatus}"]`);
+        const newBadge = row.querySelector(`[data-div-status="${newStatus}"]`);
+
+        if (oldBadge) oldBadge.textContent = Math.max(0, parseInt(oldBadge.textContent) - 1);
+        if (newBadge) newBadge.textContent = parseInt(newBadge.textContent) + 1;
+    }
+
+    function markUpdated() {
+        document.getElementById('lastRefreshed').innerHTML =
+            `<i class="bi bi-arrow-repeat me-1"></i> Updated ${new Date().toLocaleTimeString()}`;
+    }
+
+    window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
+        // Update summary cards
+        if (data.old_status !== data.new_status) {
+            adjustCard(data.old_status, -1);
+            adjustCard(data.new_status, +1);
+        }
+
+        // Update division breakdown row
+        if (data.division_id && data.old_status !== data.new_status) {
+            adjustDivisionRow(data.division_id, data.old_status, data.new_status);
+        }
+
+        markUpdated();
+    });
 </script>
 @endpush

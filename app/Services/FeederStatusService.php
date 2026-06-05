@@ -30,7 +30,7 @@ class FeederStatusService
             ]);
         });
 
-        $feeder->load('lastUpdatedBy');
-        FeederStatusUpdated::dispatch($feeder);
+        $feeder->load(['lastUpdatedBy', 'substation.subDivision']);
+        FeederStatusUpdated::dispatch($feeder, $oldStatus);
     }
 }
