@@ -56,8 +56,6 @@
                             </form>
                         </td>
                     </tr>
-                    @empty
-                    <tr><td colspan="8" class="text-center py-4 text-muted">No feeders found.</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -51,8 +51,6 @@
                         </form>
                     </td>
                 </tr>
-                @empty
-                <tr><td colspan="6" class="text-center py-4 text-muted">No substations found.</td></tr>
                 @endforelse
             </tbody>
         </table>

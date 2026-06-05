@@ -32,8 +32,6 @@
                         </form>
                     </td>
                 </tr>
-                @empty
-                <tr><td colspan="5" class="text-center py-4 text-muted">No divisions found.</td></tr>
                 @endforelse
             </tbody>
         </table>

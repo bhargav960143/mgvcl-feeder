@@ -35,8 +35,6 @@
                         </form>
                     </td>
                 </tr>
-                @empty
-                <tr><td colspan="4" class="text-center py-4 text-muted">No circles found.</td></tr>
                 @endforelse
             </tbody>
         </table>
