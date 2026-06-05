@@ -33,6 +33,7 @@
                         </form>
                     </td>
                 </tr>
+                @empty
                 @endforelse
             </tbody>
         </table>
