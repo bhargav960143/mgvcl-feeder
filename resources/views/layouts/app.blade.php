@@ -176,7 +176,7 @@ window.Echo = new Echo({
 $(function () {
     $('table[data-dt]').DataTable({
         pageLength: 25,
-        lengthMenu: [10, 25, 50, 100, 200],
+        lengthMenu: [[10, 25, 50, 100, 200, -1], [10, 25, 50, 100, 200, 'All']],
         order: [],
         language: { search: 'Search:', zeroRecords: 'No records found.' },
         columnDefs: [{ orderable: false, targets: '_all' === 'actions' ? -1 : [] }]
