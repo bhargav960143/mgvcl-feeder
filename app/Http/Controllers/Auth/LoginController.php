@@ -26,18 +26,19 @@ class LoginController extends Controller
             'password'    => ['required', 'string'],
         ]);
 
-        $credentials = [
-            'employee_id' => $request->employee_id,
-            'password'    => $request->password,
-        ];
+        $identifier = $request->employee_id;
+        $remember   = $request->boolean('remember');
 
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        $attempted = Auth::attempt(['employee_id' => $identifier, 'password' => $request->password], $remember)
+            ?: Auth::attempt(['email' => $identifier, 'password' => $request->password], $remember);
+
+        if ($attempted) {
             $request->session()->regenerate();
             return redirect()->intended($this->redirectPath());
         }
 
         return back()->withErrors([
-            'employee_id' => 'Invalid employee ID or password.',
+            'employee_id' => 'Invalid employee ID / email or password.',
         ])->onlyInput('employee_id');
     }
 

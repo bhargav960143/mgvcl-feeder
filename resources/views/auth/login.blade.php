@@ -33,13 +33,13 @@
         <form method="POST" action="{{ route('login') }}">
             @csrf
             <div class="mb-3">
-                <label for="employee_id" class="form-label fw-semibold">Employee ID</label>
+                <label for="employee_id" class="form-label fw-semibold">Employee ID or Email</label>
                 <input type="text"
                        id="employee_id"
                        name="employee_id"
                        class="form-control form-control-lg @error('employee_id') is-invalid @enderror"
                        value="{{ old('employee_id') }}"
-                       placeholder="Enter your employee ID"
+                       placeholder="Enter employee ID or email"
                        autocomplete="username"
                        autofocus>
             </div>

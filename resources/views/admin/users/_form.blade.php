@@ -10,8 +10,8 @@
         <input type="text" name="name" class="form-control" value="{{ old('name', $user?->name) }}" required>
     </div>
     <div class="col-md-6">
-        <label class="form-label fw-semibold">Employee ID <span class="text-danger">*</span></label>
-        <input type="text" name="employee_id" class="form-control" value="{{ old('employee_id', $user?->employee_id) }}" required>
+        <label class="form-label fw-semibold">Employee ID</label>
+        <input type="text" name="employee_id" class="form-control" value="{{ old('employee_id', $user?->employee_id) }}">
     </div>
     <div class="col-md-6">
         <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
