@@ -91,7 +91,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0" id="feedersTable" data-dt>
+            <table class="table table-hover mb-0" id="feedersTable">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">#</th>
