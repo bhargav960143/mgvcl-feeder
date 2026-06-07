@@ -11,6 +11,7 @@ use App\Models\Substation;
 use App\Services\FeederStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -68,7 +69,7 @@ class FeederController extends Controller
             'fully_off'    => 'Fully OFF',
         ];
 
-        $categories = FeederCategory::orderBy('name')->pluck('name');
+        $categories = Cache::remember('feeder_categories', 3600, fn() => FeederCategory::orderBy('name')->pluck('name'));
 
         return view('feeders.index', compact(
             'feeders', 'divisions', 'subDivisions', 'statusLabels', 'categories'

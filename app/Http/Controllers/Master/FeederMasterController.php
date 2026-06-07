@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\Division;
 use App\Models\Feeder;
 use App\Models\FeederCategory;
+use App\Models\SubDivision;
 use App\Models\Substation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -19,9 +22,13 @@ class FeederMasterController extends Controller
         $query = Feeder::with('substation.subDivision.division')->orderBy('name');
 
         if ($user->hasRole('circle')) {
-            $query->whereHas('substation.subDivision.division', fn($q) =>
-                $q->where('circle_id', $user->jurisdiction_id)
-            );
+            $query->whereIn('substation_id', Substation::whereIn(
+                'sub_division_id',
+                SubDivision::whereIn(
+                    'division_id',
+                    Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
+                )->pluck('id')
+            )->pluck('id'));
         }
 
         if ($request->filled('substation_id')) {
@@ -30,7 +37,7 @@ class FeederMasterController extends Controller
 
         $feeders     = $query->get();
         $substations = $this->getSubstations($user);
-        $categories  = FeederCategory::orderBy('name')->pluck('name');
+        $categories  = Cache::remember('feeder_categories', 3600, fn() => FeederCategory::orderBy('name')->pluck('name'));
 
         return view('master.feeders.index', compact('feeders', 'substations', 'categories'));
     }
@@ -38,7 +45,7 @@ class FeederMasterController extends Controller
     public function create(Request $request): View
     {
         $substations = $this->getSubstations($request->user());
-        $categories  = FeederCategory::orderBy('name')->pluck('name');
+        $categories  = Cache::remember('feeder_categories', 3600, fn() => FeederCategory::orderBy('name')->pluck('name'));
         return view('master.feeders.create', compact('substations', 'categories'));
     }
 
@@ -65,7 +72,7 @@ class FeederMasterController extends Controller
     {
         $this->checkFeederAccess($request->user(), $feeder);
         $substations = $this->getSubstations($request->user());
-        $categories  = FeederCategory::orderBy('name')->pluck('name');
+        $categories  = Cache::remember('feeder_categories', 3600, fn() => FeederCategory::orderBy('name')->pluck('name'));
         return view('master.feeders.edit', compact('feeder', 'substations', 'categories'));
     }
 

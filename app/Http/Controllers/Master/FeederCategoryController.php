@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\FeederCategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -29,6 +30,7 @@ class FeederCategoryController extends Controller
         ]);
 
         FeederCategory::create(['name' => strtoupper($request->name)]);
+        Cache::forget('feeder_categories');
 
         return redirect()->route('master.feeder-categories.index')
             ->with('success', "Category [{$request->name}] created.");
@@ -50,6 +52,7 @@ class FeederCategoryController extends Controller
         $new = strtoupper($request->name);
 
         $feederCategory->update(['name' => $new]);
+        Cache::forget('feeder_categories');
 
         // Keep feeders in sync when category name changes
         if ($old !== $new) {
@@ -67,6 +70,8 @@ class FeederCategoryController extends Controller
         }
 
         $feederCategory->delete();
+        Cache::forget('feeder_categories');
+
         return redirect()->route('master.feeder-categories.index')
             ->with('success', 'Category deleted.');
     }

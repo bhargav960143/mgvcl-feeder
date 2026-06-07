@@ -19,9 +19,10 @@ class SubstationController extends Controller
         $query = Substation::with('subDivision.division')->withCount('feeders')->orderBy('name');
 
         if ($user->hasRole('circle')) {
-            $query->whereHas('subDivision.division', fn($q) =>
-                $q->where('circle_id', $user->jurisdiction_id)
-            );
+            $query->whereIn('sub_division_id', SubDivision::whereIn(
+                'division_id',
+                Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
+            )->pluck('id'));
         }
 
         if ($request->filled('sub_division_id')) {
@@ -89,7 +90,7 @@ class SubstationController extends Controller
     {
         $query = SubDivision::with('division')->orderBy('name');
         if ($user->hasRole('circle')) {
-            $query->whereHas('division', fn($q) => $q->where('circle_id', $user->jurisdiction_id));
+            $query->whereIn('division_id', Division::where('circle_id', $user->jurisdiction_id)->pluck('id'));
         }
         return $query->get();
     }

@@ -18,7 +18,7 @@ class SubDivisionController extends Controller
         $query = SubDivision::with('division.circle')->withCount('substations')->orderBy('name');
 
         if ($user->hasRole('circle')) {
-            $query->whereHas('division', fn($q) => $q->where('circle_id', $user->jurisdiction_id));
+            $query->whereIn('division_id', Division::where('circle_id', $user->jurisdiction_id)->pluck('id'));
         }
 
         $subDivisions = $query->get();
