@@ -27,6 +27,7 @@
             border-right: 1px solid #dee2e6;
             overflow-y: auto;
             z-index: 1020;
+            transition: transform .25s ease;
         }
         .sidebar .nav-link {
             color: #444;
@@ -42,13 +43,28 @@
         }
         .sidebar .nav-link i { width: 20px; }
 
+        /* Sidebar backdrop (mobile) */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 1019;
+        }
+        .sidebar-backdrop.show { display: block; }
+
         /* Main content */
         .main-content {
             margin-top: var(--topbar-height);
             padding: 1.5rem;
         }
         @if(auth()->user()?->hasAnyRole(['admin', 'circle']))
-        .main-content { margin-left: var(--sidebar-width); }
+        @media (min-width: 992px) {
+            .main-content { margin-left: var(--sidebar-width); }
+        }
+        @media (max-width: 991.98px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.sidebar-open { transform: translateX(0); }
+        }
         @endif
 
         /* Status badges */
@@ -88,6 +104,11 @@
         </form>
     </div>
 </nav>
+
+{{-- Sidebar backdrop (mobile) --}}
+@if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+@endif
 
 {{-- Sidebar — admin & circle only --}}
 @if(auth()->user()?->hasAnyRole(['admin', 'circle']))
@@ -180,6 +201,39 @@ $(function () {
     });
 });
 </script>
+@if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+<script>
+(function () {
+    var toggle   = document.getElementById('sidebarToggle');
+    var sidebar  = document.getElementById('sidebar');
+    var backdrop = document.getElementById('sidebarBackdrop');
+    if (!toggle || !sidebar) return;
+
+    function openSidebar() {
+        sidebar.classList.add('sidebar-open');
+        backdrop && backdrop.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeSidebar() {
+        sidebar.classList.remove('sidebar-open');
+        backdrop && backdrop.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    toggle.addEventListener('click', function () {
+        sidebar.classList.contains('sidebar-open') ? closeSidebar() : openSidebar();
+    });
+    backdrop && backdrop.addEventListener('click', closeSidebar);
+
+    // close on nav link click (mobile UX)
+    sidebar.querySelectorAll('.nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth < 992) closeSidebar();
+        });
+    });
+})();
+</script>
+@endif
 @stack('scripts')
 </body>
 </html>
