@@ -33,6 +33,7 @@ class DashboardController extends Controller
         $query = Feeder::query();
         $this->applyJurisdictionScope($query, $user);
 
+        /** @var object{total:int, fullyOn:int, partialOn:int, fullyOff:int} $row */
         $row = (clone $query)->selectRaw("
             COUNT(*) as total,
             SUM(current_status = 'fully_on')    as fullyOn,

@@ -101,6 +101,6 @@ class ImportFeederCsv extends Command
         if ($value === null) return '';
         // Strip invalid UTF-8 bytes (e.g. non-breaking space \xA0 from Excel CSV exports)
         $clean = iconv('UTF-8', 'UTF-8//IGNORE', $value);
-        return trim($clean ?? '');
+        return trim($clean === false ? '' : $clean);
     }
 }
