@@ -7,6 +7,7 @@ use App\Models\Division;
 use App\Models\SubDivision;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class SubDivisionController extends Controller
@@ -34,7 +35,8 @@ class SubDivisionController extends Controller
     {
         $data = $request->validate([
             'division_id' => ['required', 'exists:divisions,id'],
-            'name'        => ['required', 'string', 'max:100'],
+            'name'        => ['required', 'string', 'max:100',
+                Rule::unique('sub_divisions')->where('division_id', $request->division_id)],
         ]);
 
         $this->checkDivisionAccess($request->user(), $data['division_id']);
@@ -58,7 +60,8 @@ class SubDivisionController extends Controller
 
         $data = $request->validate([
             'division_id' => ['required', 'exists:divisions,id'],
-            'name'        => ['required', 'string', 'max:100'],
+            'name'        => ['required', 'string', 'max:100',
+                Rule::unique('sub_divisions')->where('division_id', $request->division_id)->ignore($subDivision->id)],
         ]);
 
         $subDivision->update($data);

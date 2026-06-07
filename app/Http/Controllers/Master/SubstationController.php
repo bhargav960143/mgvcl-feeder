@@ -8,6 +8,7 @@ use App\Models\SubDivision;
 use App\Models\Substation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class SubstationController extends Controller
@@ -43,7 +44,8 @@ class SubstationController extends Controller
     {
         $data = $request->validate([
             'sub_division_id' => ['required', 'exists:sub_divisions,id'],
-            'name'            => ['required', 'string', 'max:150'],
+            'name'            => ['required', 'string', 'max:150',
+                Rule::unique('substations')->where('sub_division_id', $request->sub_division_id)],
         ]);
 
         $this->checkSubDivisionAccess($request->user(), $data['sub_division_id']);
@@ -67,7 +69,8 @@ class SubstationController extends Controller
 
         $data = $request->validate([
             'sub_division_id' => ['required', 'exists:sub_divisions,id'],
-            'name'            => ['required', 'string', 'max:150'],
+            'name'            => ['required', 'string', 'max:150',
+                Rule::unique('substations')->where('sub_division_id', $request->sub_division_id)->ignore($substation->id)],
         ]);
 
         $substation->update($data);

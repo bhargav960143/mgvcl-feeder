@@ -7,6 +7,7 @@ use App\Models\Circle;
 use App\Models\Division;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class DivisionController extends Controller
@@ -36,7 +37,8 @@ class DivisionController extends Controller
 
         $data = $request->validate([
             'circle_id' => ['required', 'exists:circles,id'],
-            'name'      => ['required', 'string', 'max:100'],
+            'name'      => ['required', 'string', 'max:100',
+                Rule::unique('divisions')->where('circle_id', $request->circle_id)],
         ]);
 
         // Circle user can only create in their own circle
@@ -63,7 +65,8 @@ class DivisionController extends Controller
 
         $data = $request->validate([
             'circle_id' => ['required', 'exists:circles,id'],
-            'name'      => ['required', 'string', 'max:100'],
+            'name'      => ['required', 'string', 'max:100',
+                Rule::unique('divisions')->where('circle_id', $request->circle_id)->ignore($division->id)],
         ]);
 
         $division->update($data);

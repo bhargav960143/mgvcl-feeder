@@ -27,11 +27,11 @@
         </select>
     </div>
     <div class="col-md-4">
-        <label class="form-label fw-semibold">Total Consumers</label>
-        <input type="number" name="total_consumer" class="form-control" min="0" value="{{ old('total_consumer', $feeder?->total_consumer ?? 0) }}">
+        <label class="form-label fw-semibold">Total Consumers <span class="text-danger">*</span></label>
+        <input type="number" name="total_consumer" class="form-control" min="0" value="{{ old('total_consumer', $feeder?->total_consumer ?? 0) }}" required>
     </div>
     <div class="col-md-4">
-        <label class="form-label fw-semibold">Total TC</label>
-        <input type="number" name="total_tc" class="form-control" min="0" value="{{ old('total_tc', $feeder?->total_tc ?? 0) }}">
+        <label class="form-label fw-semibold">Total TC <span class="text-danger">*</span></label>
+        <input type="number" name="total_tc" class="form-control" min="0" value="{{ old('total_tc', $feeder?->total_tc ?? 0) }}" required>
     </div>
 </div>

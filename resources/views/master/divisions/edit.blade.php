@@ -13,6 +13,7 @@
             <div class="mb-3">
                 <label class="form-label fw-semibold">Circle <span class="text-danger">*</span></label>
                 <select name="circle_id" class="form-select" required>
+                    <option value="">Select circle...</option>
                     @foreach($circles as $c)
                     <option value="{{ $c->id }}" {{ old('circle_id', $division->circle_id) == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
                     @endforeach
