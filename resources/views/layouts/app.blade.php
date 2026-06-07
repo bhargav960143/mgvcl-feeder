@@ -123,7 +123,7 @@
 
         @can('view-status-logs')
         <hr class="mx-3 my-1">
-        <small class="text-muted px-3 py-1" style="font-size:.75rem;">MASTER DATA</small>
+        <small class="text-muted px-3 py-1" style="font-size:.75rem;">REPORTS</small>
         @endcan
 
         @can('manage-feeder')
