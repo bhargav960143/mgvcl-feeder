@@ -139,7 +139,7 @@ class FeederController extends Controller
         )->pluck('id');
     }
 
-    private function getDivisionsForFilter($user): \Illuminate\Database\Eloquent\Collection
+    private function getDivisionsForFilter($user): \Illuminate\Support\Collection
     {
         if ($user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             $query = Division::orderBy('name');
@@ -152,7 +152,7 @@ class FeederController extends Controller
         return collect();
     }
 
-    private function getSubDivisionsForFilter($user, ?string $divisionId): \Illuminate\Database\Eloquent\Collection
+    private function getSubDivisionsForFilter($user, ?string $divisionId): \Illuminate\Support\Collection
     {
         if ($user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             $query = SubDivision::orderBy('name');
