@@ -91,7 +91,7 @@ class DashboardController extends Controller
             JOIN feeders f        ON f.substation_id = ss.id
             " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
             GROUP BY sd.id, sd.name, d.name
-            ORDER BY d.name, sd.name
+            ORDER BY sd.name, d.name
         ", $circleFilter ? [$circleFilter] : []);
 
         return collect($rows);
