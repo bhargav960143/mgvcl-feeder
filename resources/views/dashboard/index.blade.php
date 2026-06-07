@@ -215,6 +215,9 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
     // Map status key → summary card element id
     const cardMap = {
@@ -231,10 +234,8 @@
     function adjustDivisionRow(divisionId, oldStatus, newStatus) {
         const row = document.querySelector(`tr[data-division-id="${divisionId}"]`);
         if (!row) return;
-
         const oldBadge = row.querySelector(`[data-div-status="${oldStatus}"]`);
         const newBadge = row.querySelector(`[data-div-status="${newStatus}"]`);
-
         if (oldBadge) oldBadge.textContent = Math.max(0, parseInt(oldBadge.textContent) - 1);
         if (newBadge) newBadge.textContent = parseInt(newBadge.textContent) + 1;
     }
@@ -242,10 +243,8 @@
     function adjustSubDivisionRow(subDivisionId, oldStatus, newStatus) {
         const row = document.querySelector(`tr[data-sub-division-id="${subDivisionId}"]`);
         if (!row) return;
-
         const oldBadge = row.querySelector(`[data-subdiv-status="${oldStatus}"]`);
         const newBadge = row.querySelector(`[data-subdiv-status="${newStatus}"]`);
-
         if (oldBadge) oldBadge.textContent = Math.max(0, parseInt(oldBadge.textContent) - 1);
         if (newBadge) newBadge.textContent = parseInt(newBadge.textContent) + 1;
     }
@@ -266,25 +265,24 @@
         localStorage.setItem('dashboard_tab', el.getAttribute('data-bs-target'));
     }));
 
-    window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
-        // Update summary cards
-        if (data.old_status !== data.new_status) {
-            adjustCard(data.old_status, -1);
-            adjustCard(data.new_status, +1);
-        }
-
-        // Update division breakdown row
-        if (data.division_id && data.old_status !== data.new_status) {
-            adjustDivisionRow(data.division_id, data.old_status, data.new_status);
-        }
-
-        // Update sub-division breakdown row
-        if (data.sub_division_id && data.old_status !== data.new_status) {
-            adjustSubDivisionRow(data.sub_division_id, data.old_status, data.new_status);
-        }
-
-        markUpdated();
-    });
+    // Real-time updates — wrapped so failures don't break exports
+    try {
+        window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
+            if (data.old_status !== data.new_status) {
+                adjustCard(data.old_status, -1);
+                adjustCard(data.new_status, +1);
+            }
+            if (data.division_id && data.old_status !== data.new_status) {
+                adjustDivisionRow(data.division_id, data.old_status, data.new_status);
+            }
+            if (data.sub_division_id && data.old_status !== data.new_status) {
+                adjustSubDivisionRow(data.sub_division_id, data.old_status, data.new_status);
+            }
+            markUpdated();
+        });
+    } catch (e) {
+        console.warn('Real-time updates unavailable:', e);
+    }
 
     // --- Export helpers ---
     function getActiveTable() {
@@ -301,7 +299,6 @@
         const rows = [];
         table.querySelectorAll('thead tr, tbody tr').forEach(tr => {
             const cells = Array.from(tr.querySelectorAll('th, td'));
-            // Skip action column (last th with no text / contains button)
             const data = cells.slice(0, -1).map(c => c.textContent.trim());
             if (data.some(v => v !== '')) rows.push(data);
         });
@@ -322,18 +319,23 @@
         e.preventDefault();
         const table = getActiveTable();
         if (!table) return;
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const rows = tableToArray(table);
-        const head = [rows[0]];
-        const body = rows.slice(1);
-        const label = activeTabLabel();
-        doc.setFontSize(13);
-        doc.text(`MGVCL — ${label}`, 14, 15);
-        doc.setFontSize(9);
-        doc.text(`Exported: ${new Date().toLocaleString('en-IN')}`, 14, 22);
-        doc.autoTable({ head, body, startY: 27, styles: { fontSize: 8 }, headStyles: { fillColor: [26, 58, 92] } });
-        doc.save(`dashboard-${label.replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+            const rows = tableToArray(table);
+            const head = [rows[0]];
+            const body = rows.slice(1);
+            const label = activeTabLabel();
+            doc.setFontSize(13);
+            doc.text(`MGVCL — ${label}`, 14, 15);
+            doc.setFontSize(9);
+            doc.text(`Exported: ${new Date().toLocaleString('en-IN')}`, 14, 22);
+            doc.autoTable({ head, body, startY: 27, styles: { fontSize: 8 }, headStyles: { fillColor: [26, 58, 92] } });
+            doc.save(`dashboard-${label.replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
+        } catch (err) {
+            alert('PDF export failed. Please try again or use Excel export.');
+            console.error('PDF export error:', err);
+        }
     });
 
     document.getElementById('exportDivWhatsapp').addEventListener('click', function (e) {
@@ -341,11 +343,11 @@
         const table = getActiveTable();
         if (!table) return;
 
-        const label  = activeTabLabel();
+        const label    = activeTabLabel();
         const isSubDiv = label.toLowerCase().includes('sub');
-        const now    = new Date();
-        const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-        const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        const now      = new Date();
+        const dateStr  = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        const timeStr  = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
         let msg = `📊 *MGVCL ${label} Status Report*\n`;
         msg += `📅 Date: ${dateStr} ${timeStr}\n\n`;
@@ -369,12 +371,19 @@
     });
 
     document.getElementById('copyWa').addEventListener('click', function () {
-        navigator.clipboard.writeText(document.getElementById('waText').value).then(function () {
+        const text = document.getElementById('waText').value;
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text).then(function () {
+                new bootstrap.Toast(document.getElementById('waCopyToast')).show();
+            });
+        } else {
+            // Fallback for HTTP or older browsers
+            const ta = document.getElementById('waText');
+            ta.select();
+            ta.setSelectionRange(0, 99999);
+            document.execCommand('copy');
             new bootstrap.Toast(document.getElementById('waCopyToast')).show();
-        });
+        }
     });
 </script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 @endpush

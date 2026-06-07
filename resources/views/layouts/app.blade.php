@@ -57,7 +57,7 @@
             margin-top: var(--topbar-height);
             padding: 1.5rem;
         }
-        @if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+        @if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
         @media (min-width: 992px) {
             .main-content { margin-left: var(--sidebar-width); }
         }
@@ -82,7 +82,7 @@
 
 {{-- Topbar --}}
 <nav class="topbar d-flex align-items-center px-3">
-    @if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+    @if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
     <button class="btn btn-link text-white me-2 d-lg-none p-0" id="sidebarToggle">
         <i class="bi bi-list fs-4"></i>
     </button>
@@ -106,12 +106,12 @@
 </nav>
 
 {{-- Sidebar backdrop (mobile) --}}
-@if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 @endif
 
 {{-- Sidebar — admin & circle only --}}
-@if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
 <aside class="sidebar" id="sidebar">
     <nav class="nav flex-column pt-3">
         <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -204,7 +204,7 @@ $(function () {
     });
 });
 </script>
-@if(auth()->user()?->hasAnyRole(['admin', 'circle']))
+@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
 <script>
 (function () {
     var toggle   = document.getElementById('sidebarToggle');
