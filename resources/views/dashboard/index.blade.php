@@ -295,6 +295,15 @@
         return btn ? btn.textContent.trim() : 'Status';
     }
 
+    function getSummary() {
+        return {
+            total:   document.getElementById('cardTotal')?.textContent.trim()   || '0',
+            on:      document.getElementById('cardOn')?.textContent.trim()      || '0',
+            partial: document.getElementById('cardPartial')?.textContent.trim() || '0',
+            off:     document.getElementById('cardOff')?.textContent.trim()     || '0',
+        };
+    }
+
     function tableToArray(table) {
         const rows = [];
         table.querySelectorAll('thead tr, tbody tr').forEach(tr => {
@@ -309,10 +318,21 @@
         e.preventDefault();
         const table = getActiveTable();
         if (!table) return;
-        const ws = XLSX.utils.aoa_to_sheet(tableToArray(table));
+        const s = getSummary();
+        const label = activeTabLabel();
+        const summaryRows = [
+            ['MGVCL Feeder Status Report — ' + label],
+            ['Exported:', new Date().toLocaleString('en-IN')],
+            [],
+            ['Total Feeders', 'Fully ON', 'Partially ON', 'Fully OFF'],
+            [s.total, s.on, s.partial, s.off],
+            [],
+        ];
+        const dataRows = tableToArray(table);
+        const ws = XLSX.utils.aoa_to_sheet([...summaryRows, ...dataRows]);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, activeTabLabel());
-        XLSX.writeFile(wb, `dashboard-${activeTabLabel().replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, label.replace(/[^a-zA-Z0-9 ]/g, '').trim());
+        XLSX.writeFile(wb, `dashboard-${label.replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.xlsx`);
     });
 
     document.getElementById('exportDivPdf').addEventListener('click', function (e) {
@@ -321,16 +341,41 @@
         if (!table) return;
         try {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'landscape' });
-            const rows = tableToArray(table);
-            const head = [rows[0]];
-            const body = rows.slice(1);
+            const doc   = new jsPDF({ orientation: 'landscape' });
+            const s     = getSummary();
+            const rows  = tableToArray(table);
+            const head  = [rows[0]];
+            const body  = rows.slice(1);
             const label = activeTabLabel();
-            doc.setFontSize(13);
-            doc.text(`MGVCL — ${label}`, 14, 15);
+
+            doc.setFontSize(14);
+            doc.text(`MGVCL — ${label}`, 14, 14);
             doc.setFontSize(9);
-            doc.text(`Exported: ${new Date().toLocaleString('en-IN')}`, 14, 22);
-            doc.autoTable({ head, body, startY: 27, styles: { fontSize: 8 }, headStyles: { fillColor: [26, 58, 92] } });
+            doc.text(`Exported: ${new Date().toLocaleString('en-IN')}`, 14, 21);
+
+            // Summary bar
+            doc.autoTable({
+                head: [['Total Feeders', 'Fully ON', 'Partially ON', 'Fully OFF']],
+                body: [[s.total, s.on, s.partial, s.off]],
+                startY: 26,
+                styles: { fontSize: 9, halign: 'center' },
+                headStyles: { fillColor: [26, 58, 92] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 35, textColor: [25, 135, 84] },
+                    2: { cellWidth: 35, textColor: [253, 126, 20] },
+                    3: { cellWidth: 35, textColor: [220, 53, 69] },
+                },
+            });
+
+            // Main breakdown table
+            doc.autoTable({
+                head, body,
+                startY: doc.lastAutoTable.finalY + 6,
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [26, 58, 92] },
+            });
+
             doc.save(`dashboard-${label.replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.pdf`);
         } catch (err) {
             alert('PDF export failed. Please try again or use Excel export.');
@@ -343,6 +388,7 @@
         const table = getActiveTable();
         if (!table) return;
 
+        const s      = getSummary();
         const label    = activeTabLabel();
         const isSubDiv = label.toLowerCase().includes('sub');
         const now      = new Date();
@@ -350,7 +396,9 @@
         const timeStr  = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
         let msg = `📊 *MGVCL ${label} Status Report*\n`;
-        msg += `📅 Date: ${dateStr} ${timeStr}\n\n`;
+        msg += `📅 ${dateStr}  🕐 ${timeStr}\n\n`;
+        msg += `📌 *Total: ${s.total}*  ✅ ON: ${s.on}  ⚠️ Partial: ${s.partial}  ❌ OFF: ${s.off}\n`;
+        msg += `${'─'.repeat(32)}\n`;
 
         table.querySelectorAll('tbody tr').forEach(tr => {
             const cells = tr.querySelectorAll('td');
@@ -361,7 +409,7 @@
             const off     = isSubDiv ? cells[4].textContent.trim() : cells[3].textContent.trim();
             const total   = isSubDiv ? cells[5].textContent.trim() : cells[4].textContent.trim();
             msg += `*${name}*\n`;
-            msg += `  ✅ ON: ${on}  ⚠️ Partial: ${partial}  ❌ OFF: ${off}  📌 Total: ${total}\n`;
+            msg += `  ✅ ${on}  ⚠️ ${partial}  ❌ ${off}  📌 ${total}\n`;
         });
 
         msg += `\n_Exported from MGVCL Portal_`;
