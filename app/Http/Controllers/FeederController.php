@@ -23,7 +23,13 @@ class FeederController extends Controller
     {
         $user  = $request->user();
         $query = Feeder::with(['substation.subDivision.division', 'lastUpdatedBy'])
-            ->orderBy('name');
+            ->join('substations as ss',      'feeders.substation_id',   '=', 'ss.id')
+            ->join('sub_divisions as sd',    'ss.sub_division_id',      '=', 'sd.id')
+            ->join('divisions as dv',        'sd.division_id',          '=', 'dv.id')
+            ->select('feeders.*')
+            ->orderBy('dv.name')
+            ->orderBy('sd.name')
+            ->orderBy('feeders.name');
 
         // Jurisdiction scoping via whereIn (avoids correlated EXISTS subqueries)
         if ($user->isCircleScoped()) {
