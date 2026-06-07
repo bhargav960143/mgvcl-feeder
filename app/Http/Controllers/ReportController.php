@@ -11,7 +11,7 @@ class ReportController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $user  = $request->user();
-        $query = Feeder::with(['substation.subDivision.division.circle'])->orderBy('name');
+        $query = Feeder::with(['substation.subDivision.division.circle', 'lastUpdatedBy'])->orderBy('name');
 
         if ($user->hasRole('circle')) {
             $query->whereHas('substation.subDivision.division', fn($q) =>

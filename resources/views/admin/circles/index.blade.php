@@ -36,6 +36,7 @@
                     </td>
                 </tr>
                 @empty
+                <tr><td colspan="4" class="text-center text-muted py-4">No circles found.</td></tr>
                 @endforelse
             </tbody>
         </table>

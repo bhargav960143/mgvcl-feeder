@@ -13,8 +13,8 @@
             <i class="bi bi-arrow-repeat me-1"></i> Live
         </span>
         @can('export-report')
-        <a href="#" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-download me-1"></i> Export
+        <a href="{{ route('reports.export') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i> Export CSV
         </a>
         @endcan
     </div>

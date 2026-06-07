@@ -31,13 +31,14 @@
                         <form method="POST" action="{{ route('master.feeder-categories.destroy', $category) }}" class="d-inline"
                               onsubmit="return confirm('Delete category {{ $category->name }}?')">
                             @csrf @method('DELETE')
-                            <button class="btn btn-sm btn-outline-danger" {{ $category->feeders_count > 0 ? 'disabled title=Category in use' : '' }}>
+                            <button class="btn btn-sm btn-outline-danger" {{ $category->feeders_count > 0 ? 'disabled="disabled" title="Category in use"' : '' }}>
                                 <i class="bi bi-trash"></i>
                             </button>
                         </form>
                     </td>
                 </tr>
                 @empty
+                <tr><td colspan="4" class="text-center text-muted py-4">No categories found.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -29,7 +29,13 @@ class User extends Authenticatable
 
     public function jurisdictionLabel(): string
     {
-        return match ($this->jurisdiction_type) {
+        static $cache = [];
+        $key = $this->jurisdiction_type . ':' . $this->jurisdiction_id;
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        return $cache[$key] = match ($this->jurisdiction_type) {
             'circle'       => optional(Circle::find($this->jurisdiction_id))->name ?? '—',
             'division'     => optional(Division::find($this->jurisdiction_id))->name ?? '—',
             'sub_division' => optional(SubDivision::find($this->jurisdiction_id))->name ?? '—',
