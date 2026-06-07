@@ -88,6 +88,7 @@ const jtInput         = document.getElementById('jurisdictionType');
 const sectionMap = {
     admin:                { divId: 'globalJurisdiction',      selectId: null,                type: 'global'      },
     circle:               { divId: 'circleJurisdiction',      selectId: 'selectCircle',      type: 'circle'      },
+    circle_viewer:        { divId: 'circleJurisdiction',      selectId: 'selectCircle',      type: 'circle'      },
     division_manager:     { divId: 'divisionJurisdiction',    selectId: 'selectDivision',    type: 'division'    },
     sub_division_manager: { divId: 'subDivisionJurisdiction', selectId: 'selectSubDivision', type: 'sub_division' },
 };

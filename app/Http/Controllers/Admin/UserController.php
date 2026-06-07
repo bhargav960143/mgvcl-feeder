@@ -168,7 +168,7 @@ class UserController extends Controller
         }
 
         return [
-            'roles'        => ['admin', 'circle', 'division_manager', 'sub_division_manager'],
+            'roles'        => ['admin', 'circle', 'circle_viewer', 'division_manager', 'sub_division_manager'],
             'circles'      => Circle::orderBy('name')->get(),
             'divisions'    => Division::with('circle')->orderBy('name')->get(),
             'subDivisions' => SubDivision::with('division.circle')->orderBy('name')->get(),
@@ -185,7 +185,7 @@ class UserController extends Controller
         }
 
         return [
-            ['admin', 'circle', 'division_manager', 'sub_division_manager'],
+            ['admin', 'circle', 'circle_viewer', 'division_manager', 'sub_division_manager'],
             ['global', 'circle', 'division', 'sub_division'],
         ];
     }
