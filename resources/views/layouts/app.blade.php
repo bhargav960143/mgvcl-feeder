@@ -141,6 +141,9 @@
         <a href="{{ route('master.feeders.index') }}" class="nav-link {{ request()->routeIs('master.feeders.*') ? 'active' : '' }}">
             <i class="bi bi-reception-4 me-2"></i> Feeder Master
         </a>
+        <a href="{{ route('master.feeder-categories.index') }}" class="nav-link {{ request()->routeIs('master.feeder-categories.*') ? 'active' : '' }}">
+            <i class="bi bi-tags me-2"></i> Feeder Categories
+        </a>
         @endcan
 
         @can('manage-users')

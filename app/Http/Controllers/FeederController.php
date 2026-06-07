@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateFeederStatusRequest;
 use App\Models\Division;
 use App\Models\Feeder;
+use App\Models\FeederCategory;
 use App\Models\SubDivision;
 use App\Models\Substation;
 use App\Services\FeederStatusService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class FeederController extends Controller
@@ -66,11 +68,37 @@ class FeederController extends Controller
             'fully_off'    => 'Fully OFF',
         ];
 
-        $categories = ['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'];
+        $categories = FeederCategory::orderBy('name')->pluck('name');
 
         return view('feeders.index', compact(
             'feeders', 'divisions', 'subDivisions', 'statusLabels', 'categories'
         ));
+    }
+
+    public function bulkUpdateStatus(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'feeder_ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'feeder_ids.*' => ['integer', 'exists:feeders,id'],
+            'status'       => ['required', Rule::in(['fully_on', 'partially_on', 'fully_off'])],
+            'remarks'      => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $user = $request->user();
+        $feeders = Feeder::with(['substation.subDivision.division'])
+            ->whereIn('id', $request->feeder_ids)
+            ->get()
+            ->filter(fn($feeder) => $user->can('updateStatus', $feeder));
+
+        if ($feeders->isEmpty()) {
+            return back()->with('error', 'No feeders authorized for bulk update.');
+        }
+
+        foreach ($feeders as $feeder) {
+            $this->statusService->updateStatus($feeder, $request->status, $request->remarks, $user);
+        }
+
+        return back()->with('success', "{$feeders->count()} feeder(s) updated to {$request->status}.");
     }
 
     public function updateStatus(UpdateFeederStatusRequest $request, Feeder $feeder): RedirectResponse

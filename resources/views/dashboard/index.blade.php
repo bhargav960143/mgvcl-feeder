@@ -57,7 +57,7 @@
 </div>
 
 {{-- Division Breakdown --}}
-<div class="card border-0 shadow-sm">
+<div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white fw-semibold py-3">
         <i class="bi bi-bar-chart me-2"></i>Division-wise Status
     </div>
@@ -105,6 +105,58 @@
         </div>
     </div>
 </div>
+
+{{-- Sub-Division Breakdown --}}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-semibold py-3">
+        <i class="bi bi-diagram-2 me-2"></i>Sub-Division-wise Status
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Sub-Division</th>
+                        <th class="text-muted">Division</th>
+                        <th class="text-success text-center">Fully ON</th>
+                        <th class="text-warning text-center">Partial ON</th>
+                        <th class="text-danger text-center">Fully OFF</th>
+                        <th class="text-center">Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($subDivisions as $sd)
+                    <tr data-sub-division-id="{{ $sd->id }}">
+                        <td class="ps-3 fw-semibold">{{ $sd->name }}</td>
+                        <td class="text-muted small">{{ $sd->division_name }}</td>
+                        <td class="text-center">
+                            <span class="badge badge-fully-on" data-subdiv-status="fully_on">{{ $sd->feeders_on ?? 0 }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-partially-on" data-subdiv-status="partially_on">{{ $sd->feeders_partial ?? 0 }}</span>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-fully-off" data-subdiv-status="fully_off">{{ $sd->feeders_off ?? 0 }}</span>
+                        </td>
+                        <td class="text-center text-muted" data-subdiv-status="total">{{ $sd->total_feeders ?? 0 }}</td>
+                        <td>
+                            <a href="{{ route('feeders.index', ['sub_division_id' => $sd->id]) }}"
+                               class="btn btn-outline-primary btn-sm">
+                                View <i class="bi bi-arrow-right"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No sub-divisions found.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -132,6 +184,17 @@
         if (newBadge) newBadge.textContent = parseInt(newBadge.textContent) + 1;
     }
 
+    function adjustSubDivisionRow(subDivisionId, oldStatus, newStatus) {
+        const row = document.querySelector(`tr[data-sub-division-id="${subDivisionId}"]`);
+        if (!row) return;
+
+        const oldBadge = row.querySelector(`[data-subdiv-status="${oldStatus}"]`);
+        const newBadge = row.querySelector(`[data-subdiv-status="${newStatus}"]`);
+
+        if (oldBadge) oldBadge.textContent = Math.max(0, parseInt(oldBadge.textContent) - 1);
+        if (newBadge) newBadge.textContent = parseInt(newBadge.textContent) + 1;
+    }
+
     function markUpdated() {
         document.getElementById('lastRefreshed').innerHTML =
             `<i class="bi bi-arrow-repeat me-1"></i> Updated ${new Date().toLocaleTimeString()}`;
@@ -147,6 +210,11 @@
         // Update division breakdown row
         if (data.division_id && data.old_status !== data.new_status) {
             adjustDivisionRow(data.division_id, data.old_status, data.new_status);
+        }
+
+        // Update sub-division breakdown row
+        if (data.sub_division_id && data.old_status !== data.new_status) {
+            adjustSubDivisionRow(data.sub_division_id, data.old_status, data.new_status);
         }
 
         markUpdated();

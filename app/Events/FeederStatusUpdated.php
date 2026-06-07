@@ -24,13 +24,14 @@ class FeederStatusUpdated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        $divisionId = $this->feeder->substation?->subDivision?->division_id;
+        $subDivision = $this->feeder->substation?->subDivision;
 
         return [
             'feeder_id'       => $this->feeder->id,
             'old_status'      => $this->oldStatus,
             'new_status'      => $this->feeder->current_status,
-            'division_id'     => $divisionId,
+            'division_id'     => $subDivision?->division_id,
+            'sub_division_id' => $subDivision?->id,
             'updated_by'      => $this->feeder->lastUpdatedBy?->name ?? '—',
             'last_updated_at' => $this->feeder->last_updated_at?->diffForHumans() ?? '—',
         ];

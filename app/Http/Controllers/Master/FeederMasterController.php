@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\Feeder;
+use App\Models\FeederCategory;
 use App\Models\Substation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,7 @@ class FeederMasterController extends Controller
 
         $feeders     = $query->get();
         $substations = $this->getSubstations($user);
-        $categories  = ['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'];
+        $categories  = FeederCategory::orderBy('name')->pluck('name');
 
         return view('master.feeders.index', compact('feeders', 'substations', 'categories'));
     }
@@ -37,7 +38,7 @@ class FeederMasterController extends Controller
     public function create(Request $request): View
     {
         $substations = $this->getSubstations($request->user());
-        $categories  = ['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'];
+        $categories  = FeederCategory::orderBy('name')->pluck('name');
         return view('master.feeders.create', compact('substations', 'categories'));
     }
 
@@ -47,7 +48,7 @@ class FeederMasterController extends Controller
             'substation_id'  => ['required', 'exists:substations,id'],
             'name'           => ['required', 'string', 'max:150'],
             'tnd_code'       => ['required', 'string', 'max:20', 'unique:feeders'],
-            'category'       => ['required', Rule::in(['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'])],
+            'category'       => ['required', 'exists:feeder_categories,name'],
             'total_consumer' => ['required', 'integer', 'min:0'],
             'total_tc'       => ['required', 'integer', 'min:0'],
         ]);
@@ -64,7 +65,7 @@ class FeederMasterController extends Controller
     {
         $this->checkFeederAccess($request->user(), $feeder);
         $substations = $this->getSubstations($request->user());
-        $categories  = ['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'];
+        $categories  = FeederCategory::orderBy('name')->pluck('name');
         return view('master.feeders.edit', compact('feeder', 'substations', 'categories'));
     }
 
@@ -76,7 +77,7 @@ class FeederMasterController extends Controller
             'substation_id'  => ['required', 'exists:substations,id'],
             'name'           => ['required', 'string', 'max:150'],
             'tnd_code'       => ['required', 'string', 'max:20', Rule::unique('feeders')->ignore($feeder->id)],
-            'category'       => ['required', Rule::in(['URBAN', 'GIDC', 'HTEX', 'EHT', 'SST', 'IND'])],
+            'category'       => ['required', 'exists:feeder_categories,name'],
             'total_consumer' => ['required', 'integer', 'min:0'],
             'total_tc'       => ['required', 'integer', 'min:0'],
         ]);

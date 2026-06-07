@@ -15,11 +15,12 @@ class DashboardController extends Controller
 {
     public function index(Request $request): View
     {
-        $user      = $request->user();
-        $summary   = $this->buildSummary($user);
-        $divisions = $this->getDivisions($user);
+        $user        = $request->user();
+        $summary     = $this->buildSummary($user);
+        $divisions   = $this->getDivisions($user);
+        $subDivisions = $this->getSubDivisions($user);
 
-        return view('dashboard.index', compact('summary', 'divisions'));
+        return view('dashboard.index', compact('summary', 'divisions', 'subDivisions'));
     }
 
     public function summary(Request $request): JsonResponse
@@ -66,6 +67,31 @@ class DashboardController extends Controller
             " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
             GROUP BY d.id, d.name
             ORDER BY d.name
+        ", $circleFilter ? [$circleFilter] : []);
+
+        return collect($rows);
+    }
+
+    private function getSubDivisions($user): \Illuminate\Support\Collection
+    {
+        $circleFilter = $user->hasRole('circle') ? $user->jurisdiction_id : null;
+
+        $rows = DB::select("
+            SELECT
+                sd.id,
+                sd.name,
+                d.name                                             AS division_name,
+                COUNT(f.id)                                        AS total_feeders,
+                SUM(f.current_status = 'fully_on')                AS feeders_on,
+                SUM(f.current_status = 'partially_on')            AS feeders_partial,
+                SUM(f.current_status = 'fully_off')               AS feeders_off
+            FROM sub_divisions sd
+            JOIN divisions d      ON d.id = sd.division_id
+            JOIN substations ss   ON ss.sub_division_id = sd.id
+            JOIN feeders f        ON f.substation_id = ss.id
+            " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
+            GROUP BY sd.id, sd.name, d.name
+            ORDER BY d.name, sd.name
         ", $circleFilter ? [$circleFilter] : []);
 
         return collect($rows);

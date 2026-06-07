@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeederController;
 use App\Http\Controllers\FeederStatusLogController;
 use App\Http\Controllers\Master\DivisionController;
+use App\Http\Controllers\Master\FeederCategoryController;
 use App\Http\Controllers\Master\FeederMasterController;
 use App\Http\Controllers\Master\SubDivisionController;
 use App\Http\Controllers\Master\SubstationController;
@@ -31,6 +32,9 @@ Route::middleware(['auth', 'scope.jurisdiction'])->group(function () {
 
     // Feeders list + status update — all roles
     Route::get('/feeders', [FeederController::class, 'index'])->name('feeders.index');
+    Route::patch('/feeders/bulk-status', [FeederController::class, 'bulkUpdateStatus'])
+        ->name('feeders.bulkUpdateStatus')
+        ->middleware('throttle:10,1');
     Route::patch('/feeders/{feeder}/status', [FeederController::class, 'updateStatus'])
         ->name('feeders.updateStatus')
         ->middleware('throttle:30,1');
@@ -51,6 +55,7 @@ Route::middleware(['auth', 'scope.jurisdiction'])->group(function () {
         Route::resource('sub-divisions', SubDivisionController::class)->except(['show']);
         Route::resource('substations', SubstationController::class)->except(['show']);
         Route::resource('feeders', FeederMasterController::class)->except(['show']);
+        Route::resource('feeder-categories', FeederCategoryController::class)->except(['show']);
     });
 
     // Admin only
