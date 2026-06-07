@@ -409,7 +409,10 @@
             const off     = isSubDiv ? cells[4].textContent.trim() : cells[3].textContent.trim();
             const total   = isSubDiv ? cells[5].textContent.trim() : cells[4].textContent.trim();
             msg += `*${name}*\n`;
-            msg += `  ✅ ${on}  ⚠️ ${partial}  ❌ ${off}  📌 ${total}\n`;
+            msg += `  ✅ Fully ON   : ${on}\n`;
+            msg += `  ⚠️ Partial ON : ${partial}\n`;
+            msg += `  ❌ Fully OFF  : ${off}\n`;
+            msg += `  📌 Total      : ${total}\n`;
         });
 
         msg += `\n_Exported from MGVCL Portal_`;
