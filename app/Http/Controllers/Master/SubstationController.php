@@ -18,7 +18,7 @@ class SubstationController extends Controller
         $user  = $request->user();
         $query = Substation::with('subDivision.division')->withCount('feeders')->orderBy('name');
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereIn('sub_division_id', SubDivision::whereIn(
                 'division_id',
                 Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
@@ -89,7 +89,7 @@ class SubstationController extends Controller
     private function getSubDivisions($user)
     {
         $query = SubDivision::with('division')->orderBy('name');
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereIn('division_id', Division::where('circle_id', $user->jurisdiction_id)->pluck('id'));
         }
         return $query->get();
@@ -97,7 +97,7 @@ class SubstationController extends Controller
 
     private function checkSubDivisionAccess($user, int $subDivisionId): void
     {
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $sd = SubDivision::with('division')->findOrFail($subDivisionId);
             if ($sd->division->circle_id !== $user->jurisdiction_id) {
                 abort(403);

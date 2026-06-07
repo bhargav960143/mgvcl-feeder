@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Division;
 use App\Models\Feeder;
+use App\Models\SubDivision;
+use App\Models\Substation;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -13,9 +16,15 @@ class ReportController extends Controller
         $user  = $request->user();
         $query = Feeder::with(['substation.subDivision.division.circle', 'lastUpdatedBy'])->orderBy('name');
 
-        if ($user->hasRole('circle')) {
-            $query->whereHas('substation.subDivision.division', fn($q) =>
-                $q->where('circle_id', $user->jurisdiction_id)
+        if ($user->isCircleScoped()) {
+            $query->whereIn('substation_id',
+                Substation::whereIn(
+                    'sub_division_id',
+                    SubDivision::whereIn(
+                        'division_id',
+                        Division::where('circle_id', $user->jurisdiction_id)->pluck('id')
+                    )->pluck('id')
+                )->pluck('id')
             );
         }
 

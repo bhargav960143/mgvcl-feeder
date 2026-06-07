@@ -27,6 +27,11 @@ class User extends Authenticatable
         return $this->hasMany(FeederStatusLog::class, 'updated_by');
     }
 
+    public function isCircleScoped(): bool
+    {
+        return $this->hasAnyRole(['circle', 'circle_viewer']);
+    }
+
     public function jurisdictionLabel(): string
     {
         static $cache = [];

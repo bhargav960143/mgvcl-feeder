@@ -17,7 +17,7 @@ class DivisionController extends Controller
         $user  = $request->user();
         $query = Division::with('circle')->withCount('subDivisions')->orderBy('name');
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->where('circle_id', $user->jurisdiction_id);
         }
 
@@ -42,7 +42,7 @@ class DivisionController extends Controller
         ]);
 
         // Circle user can only create in their own circle
-        if ($user->hasRole('circle') && $data['circle_id'] != $user->jurisdiction_id) {
+        if ($user->isCircleScoped() && $data['circle_id'] != $user->jurisdiction_id) {
             abort(403);
         }
 
@@ -84,7 +84,7 @@ class DivisionController extends Controller
     private function getCircles($user)
     {
         $query = Circle::orderBy('name');
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->where('id', $user->jurisdiction_id);
         }
         return $query->get();
@@ -92,7 +92,7 @@ class DivisionController extends Controller
 
     private function authorizeJurisdiction($user, Division $division): void
     {
-        if ($user->hasRole('circle') && $division->circle_id !== $user->jurisdiction_id) {
+        if ($user->isCircleScoped() && $division->circle_id !== $user->jurisdiction_id) {
             abort(403);
         }
     }

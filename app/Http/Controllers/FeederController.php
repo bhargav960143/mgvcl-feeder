@@ -26,7 +26,7 @@ class FeederController extends Controller
             ->orderBy('name');
 
         // Jurisdiction scoping via whereIn (avoids correlated EXISTS subqueries)
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereIn('substation_id', $this->substationIdsForCircle($user->jurisdiction_id));
         } elseif ($user->hasRole('division_manager')) {
             $query->whereIn('substation_id', $this->substationIdsForDivision($user->jurisdiction_id));
@@ -49,10 +49,10 @@ class FeederController extends Controller
                 ->orWhere('tnd_code', 'like', "%{$search}%")
             );
         }
-        if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle'])) {
+        if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             $query->whereIn('substation_id', $this->substationIdsForDivision($request->division_id));
         }
-        if ($request->filled('sub_division_id') && $user->hasAnyRole(['admin', 'circle', 'division_manager'])) {
+        if ($request->filled('sub_division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer', 'division_manager'])) {
             $query->whereIn('substation_id',
                 Substation::where('sub_division_id', $request->sub_division_id)->pluck('id')
             );
@@ -135,9 +135,9 @@ class FeederController extends Controller
 
     private function getDivisionsForFilter($user): \Illuminate\Database\Eloquent\Collection
     {
-        if ($user->hasAnyRole(['admin', 'circle'])) {
+        if ($user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             $query = Division::orderBy('name');
-            if ($user->hasRole('circle')) {
+            if ($user->isCircleScoped()) {
                 $query->where('circle_id', $user->jurisdiction_id);
             }
             return $query->get();
@@ -148,11 +148,11 @@ class FeederController extends Controller
 
     private function getSubDivisionsForFilter($user, ?string $divisionId): \Illuminate\Database\Eloquent\Collection
     {
-        if ($user->hasAnyRole(['admin', 'circle'])) {
+        if ($user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             $query = SubDivision::orderBy('name');
             if ($divisionId) {
                 $query->where('division_id', $divisionId);
-            } elseif ($user->hasRole('circle')) {
+            } elseif ($user->isCircleScoped()) {
                 $query->whereIn(
                     'division_id',
                     Division::where('circle_id', $user->jurisdiction_id)->pluck('id')

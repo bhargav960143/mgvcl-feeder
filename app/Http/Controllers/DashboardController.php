@@ -50,7 +50,7 @@ class DashboardController extends Controller
 
     private function getDivisions($user): \Illuminate\Support\Collection
     {
-        $circleFilter = $user->hasRole('circle') ? $user->jurisdiction_id : null;
+        $circleFilter = $user->isCircleScoped() ? $user->jurisdiction_id : null;
 
         $rows = DB::select("
             SELECT
@@ -74,7 +74,7 @@ class DashboardController extends Controller
 
     private function getSubDivisions($user): \Illuminate\Support\Collection
     {
-        $circleFilter = $user->hasRole('circle') ? $user->jurisdiction_id : null;
+        $circleFilter = $user->isCircleScoped() ? $user->jurisdiction_id : null;
 
         $rows = DB::select("
             SELECT
@@ -103,7 +103,7 @@ class DashboardController extends Controller
             return;
         }
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $substationIds = Substation::whereIn(
                 'sub_division_id',
                 SubDivision::whereIn(

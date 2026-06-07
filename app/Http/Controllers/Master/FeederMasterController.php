@@ -21,7 +21,7 @@ class FeederMasterController extends Controller
         $user  = $request->user();
         $query = Feeder::with('substation.subDivision.division')->orderBy('name');
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereIn('substation_id', Substation::whereIn(
                 'sub_division_id',
                 SubDivision::whereIn(
@@ -104,7 +104,7 @@ class FeederMasterController extends Controller
     private function getSubstations($user)
     {
         $query = Substation::with('subDivision.division')->orderBy('name');
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereHas('subDivision.division', fn($q) =>
                 $q->where('circle_id', $user->jurisdiction_id)
             );
@@ -114,7 +114,7 @@ class FeederMasterController extends Controller
 
     private function checkSubstationAccess($user, int $substationId): void
     {
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $ss = Substation::with('subDivision.division')->findOrFail($substationId);
             if ($ss->subDivision->division->circle_id !== $user->jurisdiction_id) {
                 abort(403);
@@ -124,7 +124,7 @@ class FeederMasterController extends Controller
 
     private function checkFeederAccess($user, Feeder $feeder): void
     {
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $feeder->load('substation.subDivision.division');
             if ($feeder->substation->subDivision->division->circle_id !== $user->jurisdiction_id) {
                 abort(403);

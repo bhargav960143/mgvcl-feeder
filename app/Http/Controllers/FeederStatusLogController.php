@@ -25,7 +25,7 @@ class FeederStatusLogController extends Controller
     {
         if ($user->hasRole('admin')) return;
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $feeder->load('substation.subDivision.division');
             if ($feeder->substation->subDivision->division->circle_id !== $user->jurisdiction_id) {
                 abort(403);

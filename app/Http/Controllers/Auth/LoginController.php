@@ -55,7 +55,7 @@ class LoginController extends Controller
     {
         $user = Auth::user();
 
-        if ($user && $user->hasAnyRole(['admin', 'circle'])) {
+        if ($user && $user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
             return route('dashboard');
         }
 

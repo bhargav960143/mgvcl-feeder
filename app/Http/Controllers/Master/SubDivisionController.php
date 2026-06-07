@@ -17,7 +17,7 @@ class SubDivisionController extends Controller
         $user  = $request->user();
         $query = SubDivision::with('division.circle')->withCount('substations')->orderBy('name');
 
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->whereIn('division_id', Division::where('circle_id', $user->jurisdiction_id)->pluck('id'));
         }
 
@@ -79,7 +79,7 @@ class SubDivisionController extends Controller
     private function getDivisions($user)
     {
         $query = Division::orderBy('name');
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $query->where('circle_id', $user->jurisdiction_id);
         }
         return $query->get();
@@ -87,7 +87,7 @@ class SubDivisionController extends Controller
 
     private function checkDivisionAccess($user, int $divisionId): void
     {
-        if ($user->hasRole('circle')) {
+        if ($user->isCircleScoped()) {
             $division = Division::findOrFail($divisionId);
             if ($division->circle_id !== $user->jurisdiction_id) {
                 abort(403);
