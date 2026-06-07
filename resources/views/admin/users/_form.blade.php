@@ -45,9 +45,13 @@
 
     <div class="col-md-6" id="jurisdictionWrapper">
         <label class="form-label fw-semibold">Jurisdiction</label>
+
+        {{-- Single hidden field — JS keeps this in sync with the active section --}}
+        <input type="hidden" name="jurisdiction_type" id="jurisdictionType"
+               value="{{ old('jurisdiction_type', $user?->jurisdiction_type ?? 'global') }}">
+
         <div id="circleJurisdiction" class="d-none">
-            <input type="hidden" name="jurisdiction_type" value="circle" id="jtCircle">
-            <select name="jurisdiction_id" class="form-select">
+            <select name="jurisdiction_id" id="selectCircle" class="form-select" disabled>
                 <option value="">Select circle...</option>
                 @foreach($circles as $c)
                 <option value="{{ $c->id }}" {{ old('jurisdiction_id', $user?->jurisdiction_id) == $c->id ? 'selected' : '' }}>{{ $c->name }}</option>
@@ -55,8 +59,7 @@
             </select>
         </div>
         <div id="divisionJurisdiction" class="d-none">
-            <input type="hidden" name="jurisdiction_type" value="division" id="jtDivision">
-            <select name="jurisdiction_id" class="form-select">
+            <select name="jurisdiction_id" id="selectDivision" class="form-select" disabled>
                 <option value="">Select division...</option>
                 @foreach($divisions as $d)
                 <option value="{{ $d->id }}" {{ old('jurisdiction_id', $user?->jurisdiction_id) == $d->id ? 'selected' : '' }}>{{ $d->name }} ({{ $d->circle->name }})</option>
@@ -64,39 +67,53 @@
             </select>
         </div>
         <div id="subDivisionJurisdiction" class="d-none">
-            <input type="hidden" name="jurisdiction_type" value="sub_division" id="jtSubDiv">
-            <select name="jurisdiction_id" class="form-select">
+            <select name="jurisdiction_id" id="selectSubDivision" class="form-select" disabled>
                 <option value="">Select sub division...</option>
                 @foreach($subDivisions as $sd)
                 <option value="{{ $sd->id }}" {{ old('jurisdiction_id', $user?->jurisdiction_id) == $sd->id ? 'selected' : '' }}>{{ $sd->name }} ({{ $sd->division->name }})</option>
                 @endforeach
             </select>
         </div>
-        <div id="globalJurisdiction">
-            <input type="hidden" name="jurisdiction_type" value="global">
-            <input type="hidden" name="jurisdiction_id" value="">
-            <p class="text-muted small mt-1">Admin has global access — no jurisdiction needed.</p>
+        <div id="globalJurisdiction" class="d-none">
+            <p class="text-muted small mt-1 mb-0">Admin has global access — no jurisdiction needed.</p>
         </div>
     </div>
 </div>
 
 @push('scripts')
 <script>
-const roleSelect = document.getElementById('roleSelect');
-const divs = {
-    admin:               'globalJurisdiction',
-    circle:              'circleJurisdiction',
-    division_manager:    'divisionJurisdiction',
-    sub_division_manager:'subDivisionJurisdiction',
+const roleSelect      = document.getElementById('roleSelect');
+const jtInput         = document.getElementById('jurisdictionType');
+
+const sectionMap = {
+    admin:                { divId: 'globalJurisdiction',      selectId: null,                type: 'global'      },
+    circle:               { divId: 'circleJurisdiction',      selectId: 'selectCircle',      type: 'circle'      },
+    division_manager:     { divId: 'divisionJurisdiction',    selectId: 'selectDivision',    type: 'division'    },
+    sub_division_manager: { divId: 'subDivisionJurisdiction', selectId: 'selectSubDivision', type: 'sub_division' },
 };
 
 function updateJurisdiction() {
-    Object.values(divs).forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('d-none');
+    // Hide all sections and disable all selects
+    Object.values(sectionMap).forEach(({ divId, selectId }) => {
+        document.getElementById(divId)?.classList.add('d-none');
+        if (selectId) {
+            const sel = document.getElementById(selectId);
+            if (sel) sel.disabled = true;
+        }
     });
-    const target = divs[roleSelect.value];
-    if (target) document.getElementById(target)?.classList.remove('d-none');
+
+    const cfg = sectionMap[roleSelect.value];
+    if (!cfg) return;
+
+    // Show active section
+    document.getElementById(cfg.divId)?.classList.remove('d-none');
+
+    // Enable active select and sync jurisdiction_type
+    if (cfg.selectId) {
+        const sel = document.getElementById(cfg.selectId);
+        if (sel) sel.disabled = false;
+    }
+    jtInput.value = cfg.type;
 }
 
 roleSelect.addEventListener('change', updateJurisdiction);
