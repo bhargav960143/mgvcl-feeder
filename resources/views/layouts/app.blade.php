@@ -57,7 +57,7 @@
             margin-top: var(--topbar-height);
             padding: 1.5rem;
         }
-        @if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
+        @auth
         @media (min-width: 992px) {
             .main-content { margin-left: var(--sidebar-width); }
         }
@@ -65,7 +65,7 @@
             .sidebar { transform: translateX(-100%); }
             .sidebar.sidebar-open { transform: translateX(0); }
         }
-        @endif
+        @endauth
 
         /* Status badges */
         .badge-fully-on     { background: #198754; }
@@ -82,11 +82,11 @@
 
 {{-- Topbar --}}
 <nav class="topbar d-flex align-items-center px-3">
-    @if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
+    @auth
     <button class="btn btn-link text-white me-2 d-lg-none p-0" id="sidebarToggle">
         <i class="bi bi-list fs-4"></i>
     </button>
-    @endif
+    @endauth
     <a class="navbar-brand text-white fw-bold text-decoration-none me-auto" href="{{ route('dashboard') }}">
         <i class="bi bi-lightning-charge-fill me-1"></i> MGVCL Feeder
     </a>
@@ -106,20 +106,24 @@
 </nav>
 
 {{-- Sidebar backdrop (mobile) --}}
-@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
+@auth
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
-@endif
+@endauth
 
-{{-- Sidebar — admin & circle only --}}
-@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
+{{-- Sidebar --}}
+@auth
 <aside class="sidebar" id="sidebar">
     <nav class="nav flex-column pt-3">
+        @can('view-dashboard')
         <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <i class="bi bi-speedometer2 me-2"></i> Dashboard
         </a>
+        @endcan
+        @can('view-feeder-list')
         <a href="{{ route('feeders.index') }}" class="nav-link {{ request()->routeIs('feeders.*') ? 'active' : '' }}">
             <i class="bi bi-lightning me-2"></i> Feeder Status
         </a>
+        @endcan
 
         @can('view-status-logs')
         <hr class="mx-3 my-1">
@@ -158,7 +162,7 @@
         @endcan
     </nav>
 </aside>
-@endif
+@endauth
 
 {{-- Main Content --}}
 <main class="main-content">
@@ -204,7 +208,7 @@ $(function () {
     });
 });
 </script>
-@if(auth()->user()?->hasAnyRole(['admin', 'circle', 'circle_viewer']))
+@auth
 <script>
 (function () {
     var toggle   = document.getElementById('sidebarToggle');
@@ -236,7 +240,7 @@ $(function () {
     });
 })();
 </script>
-@endif
+@endauth
 @stack('scripts')
 </body>
 </html>

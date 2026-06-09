@@ -34,10 +34,10 @@ Route::middleware(['auth', 'scope.jurisdiction'])->group(function () {
     Route::get('/feeders', [FeederController::class, 'index'])->name('feeders.index');
     Route::patch('/feeders/bulk-status', [FeederController::class, 'bulkUpdateStatus'])
         ->name('feeders.bulkUpdateStatus')
-        ->middleware('throttle:10,1');
+        ->middleware(['permission:update-feeder-status', 'throttle:10,1']);
     Route::patch('/feeders/{feeder}/status', [FeederController::class, 'updateStatus'])
         ->name('feeders.updateStatus')
-        ->middleware('throttle:30,1');
+        ->middleware(['permission:update-feeder-status', 'throttle:30,1']);
 
     // Status logs — admin & circle
     Route::get('/feeders/{feeder}/logs', [FeederStatusLogController::class, 'index'])

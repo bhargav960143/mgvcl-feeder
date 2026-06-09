@@ -181,6 +181,8 @@
                                     {{ $feeder->current_status === 'fully_off' ? 'disabled' : '' }}
                                     title="Mark Fully OFF">OFF</button>
                             </div>
+                            @else
+                            @include('feeders.partials.status-badge', ['status' => $feeder->current_status])
                             @endcan
                         </td>
                         <td><code class="text-secondary">{{ $feeder->tnd_code }}</code></td>

@@ -17,14 +17,6 @@ class FeederPolicy
             return $feeder->substation->subDivision->division->circle_id === $user->jurisdiction_id;
         }
 
-        if ($user->hasRole('division_manager')) {
-            return $feeder->substation->subDivision->division_id === $user->jurisdiction_id;
-        }
-
-        if ($user->hasRole('sub_division_manager')) {
-            return $feeder->substation->sub_division_id === $user->jurisdiction_id;
-        }
-
         return false;
     }
 
