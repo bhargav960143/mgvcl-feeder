@@ -95,7 +95,7 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3">Division</th>
+                            <th class="ps-3 sortable-col" data-table="divTable" data-col="0" style="cursor:pointer;user-select:none;">Division <span class="sort-icon">↑</span></th>
                             <th class="text-success text-center">Fully ON</th>
                             <th class="text-warning text-center">Partial ON</th>
                             <th class="text-danger text-center">Fully OFF</th>
@@ -140,8 +140,8 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3">Sub-Division</th>
-                            <th class="text-muted">Division</th>
+                            <th class="ps-3 sortable-col" data-table="subDivTable" data-col="0" style="cursor:pointer;user-select:none;">Sub-Division <span class="sort-icon">↑</span></th>
+                            <th class="text-muted sortable-col" data-table="subDivTable" data-col="1" style="cursor:pointer;user-select:none;">Division <span class="sort-icon"></span></th>
                             <th class="text-success text-center">Fully ON</th>
                             <th class="text-warning text-center">Partial ON</th>
                             <th class="text-danger text-center">Fully OFF</th>
@@ -419,6 +419,52 @@
 
         document.getElementById('waText').value = msg;
         new bootstrap.Modal(document.getElementById('waModal')).show();
+    });
+
+    // --- Column sorting ---
+    const sortState = {
+        divTable:    { col: 0, asc: true },
+        subDivTable: { col: 0, asc: true },
+    };
+
+    function tableBodyFor(tableId) {
+        const map = {
+            divTable:    document.querySelector('#divTab table tbody'),
+            subDivTable: document.querySelector('#subDivTab table tbody'),
+        };
+        return map[tableId];
+    }
+
+    function sortTable(tableId, col) {
+        const state  = sortState[tableId];
+        const asc    = state.col === col ? !state.asc : true;
+        state.col    = col;
+        state.asc    = asc;
+
+        const tbody  = tableBodyFor(tableId);
+        if (!tbody) return;
+
+        const rows   = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+            const aText = (a.querySelectorAll('td')[col]?.textContent.trim() || '').toLowerCase();
+            const bText = (b.querySelectorAll('td')[col]?.textContent.trim() || '').toLowerCase();
+            return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+        });
+        rows.forEach(r => tbody.appendChild(r));
+
+        // Update icons
+        document.querySelectorAll(`.sortable-col[data-table="${tableId}"]`).forEach(th => {
+            const icon = th.querySelector('.sort-icon');
+            if (!icon) return;
+            const thCol = parseInt(th.getAttribute('data-col'));
+            icon.textContent = thCol === col ? (asc ? '↑' : '↓') : '';
+        });
+    }
+
+    document.querySelectorAll('.sortable-col').forEach(th => {
+        th.addEventListener('click', function () {
+            sortTable(this.getAttribute('data-table'), parseInt(this.getAttribute('data-col')));
+        });
     });
 
     document.getElementById('copyWa').addEventListener('click', function () {
