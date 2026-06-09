@@ -137,6 +137,7 @@
                         </th>
                         <th>#</th>
                         <th>Feeder Name</th>
+                        <th class="text-center">Quick Status</th>
                         <th>TND Code</th>
                         <th>Division</th>
                         <th>Sub Division</th>
@@ -150,7 +151,7 @@
                 </thead>
                 <tbody>
                     @forelse($feeders as $feeder)
-                    <tr>
+                    <tr data-feeder-row="{{ $feeder->id }}">
                         <td class="ps-3">
                             @can('updateStatus', $feeder)
                             <input type="checkbox" class="feeder-select" value="{{ $feeder->id }}">
@@ -158,6 +159,30 @@
                         </td>
                         <td class="text-muted small">{{ $loop->iteration }}</td>
                         <td class="fw-semibold">{{ $feeder->name }}</td>
+                        <td class="text-center">
+                            @can('update-feeder-status')
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button type="button"
+                                    class="btn btn-xs quick-status-btn {{ $feeder->current_status === 'fully_on' ? 'btn-success' : 'btn-outline-success' }}"
+                                    data-feeder-id="{{ $feeder->id }}"
+                                    data-status="fully_on"
+                                    {{ $feeder->current_status === 'fully_on' ? 'disabled' : '' }}
+                                    title="Mark Fully ON">ON</button>
+                                <button type="button"
+                                    class="btn btn-xs quick-status-btn {{ $feeder->current_status === 'partially_on' ? 'btn-warning' : 'btn-outline-warning' }}"
+                                    data-feeder-id="{{ $feeder->id }}"
+                                    data-status="partially_on"
+                                    {{ $feeder->current_status === 'partially_on' ? 'disabled' : '' }}
+                                    title="Mark Partially ON">~ON</button>
+                                <button type="button"
+                                    class="btn btn-xs quick-status-btn {{ $feeder->current_status === 'fully_off' ? 'btn-danger' : 'btn-outline-danger' }}"
+                                    data-feeder-id="{{ $feeder->id }}"
+                                    data-status="fully_off"
+                                    {{ $feeder->current_status === 'fully_off' ? 'disabled' : '' }}
+                                    title="Mark Fully OFF">OFF</button>
+                            </div>
+                            @endcan
+                        </td>
                         <td><code class="text-secondary">{{ $feeder->tnd_code }}</code></td>
                         <td class="small">{{ $feeder->substation->subDivision->division->name ?? '—' }}</td>
                         <td class="small">{{ $feeder->substation->subDivision->name ?? '—' }}</td>
@@ -203,7 +228,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="12" class="text-center py-5 text-muted">
+                        <td colspan="13" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                             No feeders found.
                         </td>
@@ -347,6 +372,12 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+    .btn-xs { padding: .15rem .4rem; font-size: .72rem; line-height: 1.4; border-radius: .2rem; }
+</style>
+@endpush
+
 @push('scripts')
 <script>
     // --- DataTables init ---
@@ -355,7 +386,7 @@
         lengthMenu: [[10, 25, 50, 100, 200, -1], [10, 25, 50, 100, 200, 'All']],
         order: [],
         searching: true,
-        columnDefs: [{ orderable: false, targets: 0 }],
+        columnDefs: [{ orderable: false, targets: [0, 3] }],
         language: { search: 'Quick search:', zeroRecords: 'No feeders found.' }
     });
 
@@ -449,24 +480,68 @@
         fully_off:    { cls: 'badge-fully-off',     label: 'Fully OFF'    },
     };
 
-    window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
-        const btn = document.querySelector(`[data-feeder-id="${data.feeder_id}"]`);
-        if (!btn) return;
-
-        const row = btn.closest('tr');
-        const s   = statusMap[data.new_status] ?? { cls: 'bg-secondary', label: data.new_status };
+    function applyRowStatus(row, newStatus) {
+        const s = statusMap[newStatus] ?? { cls: 'bg-secondary', label: newStatus };
 
         const statusCell = row.querySelector('.feeder-status-cell');
         if (statusCell) {
             statusCell.innerHTML = `<span class="badge ${s.cls}" style="font-size:.8rem;padding:.35em .65em;">${s.label}</span>`;
         }
 
+        // Update modal button's stored status
+        const modalBtn = row.querySelector('[data-bs-target="#updateModal"]');
+        if (modalBtn) modalBtn.dataset.feederStatus = newStatus;
+
+        // Update quick-status buttons: active=filled+disabled, others=outline+enabled
+        row.querySelectorAll('.quick-status-btn').forEach(function (b) {
+            const isActive = b.dataset.status === newStatus;
+            const color = b.dataset.status === 'fully_on' ? 'success'
+                        : b.dataset.status === 'partially_on' ? 'warning' : 'danger';
+            b.className = `btn btn-xs quick-status-btn ${isActive ? 'btn-' + color : 'btn-outline-' + color}`;
+            b.disabled = isActive;
+        });
+    }
+
+    window.Echo.channel('feeders').listen('FeederStatusUpdated', function (data) {
+        const row = document.querySelector(`tr[data-feeder-row="${data.feeder_id}"]`);
+        if (!row) return;
+
+        applyRowStatus(row, data.new_status);
+
         const timeCell = row.querySelector('.feeder-time-cell');
         if (timeCell) {
             timeCell.innerHTML = `<span>${data.last_updated_at}</span><br><span class="text-muted" style="font-size:.75rem;">${data.updated_by}</span>`;
         }
+    });
 
-        btn.dataset.feederStatus = data.new_status;
+    // --- Quick status inline change ---
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+    $(document).on('click', '.quick-status-btn', function () {
+        const btn      = this;
+        const feederId = btn.dataset.feederId;
+        const status   = btn.dataset.status;
+        const row      = btn.closest('tr');
+
+        btn.disabled = true;
+
+        fetch(`/feeders/${feederId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept':       'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({ status }),
+        })
+        .then(function (res) {
+            if (!res.ok) throw new Error('Server error ' + res.status);
+            applyRowStatus(row, status);
+        })
+        .catch(function () {
+            btn.disabled = false;
+            alert('Status update failed. Please try again.');
+        });
     });
 
     // --- Single feeder modal ---
@@ -495,14 +570,14 @@
             rows.push({
                 sr:          cells[1].textContent.trim(),
                 name:        cells[2].textContent.trim(),
-                tnd:         cells[3].textContent.trim(),
-                division:    cells[4].textContent.trim(),
-                subDivision: cells[5].textContent.trim(),
-                substation:  cells[6].textContent.trim(),
-                category:    cells[7].textContent.trim(),
-                consumers:   cells[8].textContent.trim(),
-                status:      cells[9].textContent.trim(),
-                lastUpdated: cells[10].textContent.trim(),
+                tnd:         cells[4].textContent.trim(),
+                division:    cells[5].textContent.trim(),
+                subDivision: cells[6].textContent.trim(),
+                substation:  cells[7].textContent.trim(),
+                category:    cells[8].textContent.trim(),
+                consumers:   cells[9].textContent.trim(),
+                status:      cells[10].textContent.trim(),
+                lastUpdated: cells[11].textContent.trim(),
             });
         });
         return rows;

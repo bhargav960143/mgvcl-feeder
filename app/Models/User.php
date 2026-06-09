@@ -32,6 +32,16 @@ class User extends Authenticatable
         return $this->hasAnyRole(['circle', 'circle_viewer']);
     }
 
+    public function isDivisionScoped(): bool
+    {
+        return $this->hasRole('division_manager');
+    }
+
+    public function isSubDivisionScoped(): bool
+    {
+        return $this->hasRole('sub_division_manager');
+    }
+
     public function jurisdictionLabel(): string
     {
         static $cache = [];

@@ -52,11 +52,19 @@ class RolePermissionSeeder extends Seeder
             'division_manager' => [
                 'view-feeder-list',
                 'update-feeder-status',
+                'view-dashboard',
+                'view-feeder-detail',
+                'view-status-logs',
+                'export-report',
             ],
 
             'sub_division_manager' => [
                 'view-feeder-list',
                 'update-feeder-status',
+                'view-dashboard',
+                'view-feeder-detail',
+                'view-status-logs',
+                'export-report',
             ],
         ];
 

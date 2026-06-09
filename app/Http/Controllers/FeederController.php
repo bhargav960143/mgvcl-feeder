@@ -9,6 +9,7 @@ use App\Models\FeederCategory;
 use App\Models\SubDivision;
 use App\Models\Substation;
 use App\Services\FeederStatusService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -108,7 +109,7 @@ class FeederController extends Controller
         return back()->with('success', "{$feeders->count()} feeder(s) updated to {$request->status}.");
     }
 
-    public function updateStatus(UpdateFeederStatusRequest $request, Feeder $feeder): RedirectResponse
+    public function updateStatus(UpdateFeederStatusRequest $request, Feeder $feeder): RedirectResponse|JsonResponse
     {
         $this->statusService->updateStatus(
             $feeder,
@@ -116,6 +117,10 @@ class FeederController extends Controller
             $request->remarks,
             $request->user()
         );
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
 
         return back()->with('success', "Feeder [{$feeder->name}] status updated to {$request->status}.");
     }

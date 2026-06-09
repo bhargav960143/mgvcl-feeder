@@ -51,7 +51,7 @@ class DashboardController extends Controller
 
     private function getDivisions($user): \Illuminate\Support\Collection
     {
-        $circleFilter = $user->isCircleScoped() ? $user->jurisdiction_id : null;
+        [$where, $params] = $this->divisionQueryScope($user);
 
         $rows = DB::select("
             SELECT
@@ -65,17 +65,17 @@ class DashboardController extends Controller
             JOIN sub_divisions sd ON sd.division_id = d.id
             JOIN substations ss   ON ss.sub_division_id = sd.id
             JOIN feeders f        ON f.substation_id = ss.id
-            " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
+            {$where}
             GROUP BY d.id, d.name
             ORDER BY d.name
-        ", $circleFilter ? [$circleFilter] : []);
+        ", $params);
 
         return collect($rows);
     }
 
     private function getSubDivisions($user): \Illuminate\Support\Collection
     {
-        $circleFilter = $user->isCircleScoped() ? $user->jurisdiction_id : null;
+        [$where, $params] = $this->subDivisionQueryScope($user);
 
         $rows = DB::select("
             SELECT
@@ -90,12 +90,42 @@ class DashboardController extends Controller
             JOIN divisions d      ON d.id = sd.division_id
             JOIN substations ss   ON ss.sub_division_id = sd.id
             JOIN feeders f        ON f.substation_id = ss.id
-            " . ($circleFilter ? "WHERE d.circle_id = ?" : "") . "
+            {$where}
             GROUP BY sd.id, sd.name, d.name
             ORDER BY sd.name, d.name
-        ", $circleFilter ? [$circleFilter] : []);
+        ", $params);
 
         return collect($rows);
+    }
+
+    /** @return array{0: string, 1: array<mixed>} */
+    private function divisionQueryScope($user): array
+    {
+        if ($user->isCircleScoped()) {
+            return ['WHERE d.circle_id = ?', [$user->jurisdiction_id]];
+        }
+        if ($user->isDivisionScoped()) {
+            return ['WHERE d.id = ?', [$user->jurisdiction_id]];
+        }
+        if ($user->isSubDivisionScoped()) {
+            return ['WHERE sd.id = ?', [$user->jurisdiction_id]];
+        }
+        return ['', []];
+    }
+
+    /** @return array{0: string, 1: array<mixed>} */
+    private function subDivisionQueryScope($user): array
+    {
+        if ($user->isCircleScoped()) {
+            return ['WHERE d.circle_id = ?', [$user->jurisdiction_id]];
+        }
+        if ($user->isDivisionScoped()) {
+            return ['WHERE sd.division_id = ?', [$user->jurisdiction_id]];
+        }
+        if ($user->isSubDivisionScoped()) {
+            return ['WHERE sd.id = ?', [$user->jurisdiction_id]];
+        }
+        return ['', []];
     }
 
     private function applyJurisdictionScope(\Illuminate\Database\Eloquent\Builder $query, $user): void
@@ -113,6 +143,22 @@ class DashboardController extends Controller
                 )->pluck('id')
             )->pluck('id');
 
+            $query->whereIn('substation_id', $substationIds);
+            return;
+        }
+
+        if ($user->isDivisionScoped()) {
+            $substationIds = Substation::whereIn(
+                'sub_division_id',
+                SubDivision::where('division_id', $user->jurisdiction_id)->pluck('id')
+            )->pluck('id');
+
+            $query->whereIn('substation_id', $substationIds);
+            return;
+        }
+
+        if ($user->isSubDivisionScoped()) {
+            $substationIds = Substation::where('sub_division_id', $user->jurisdiction_id)->pluck('id');
             $query->whereIn('substation_id', $substationIds);
         }
     }
