@@ -72,7 +72,7 @@
                 </select>
             </div>
 
-            {{-- Division filter — admin/circle only --}}
+            {{-- Division filter --}}
             @if($divisions->isNotEmpty())
             <div class="col-6 col-md-2">
                 <select name="division_id" class="form-select form-select-sm">

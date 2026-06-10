@@ -56,10 +56,10 @@ class FeederController extends Controller
                 ->orWhere('tnd_code', 'like', "%{$search}%")
             );
         }
-        if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer'])) {
+        if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer', 'division_manager', 'sub_division_manager'])) {
             $query->whereIn('substation_id', $this->substationIdsForDivision($request->division_id));
         }
-        if ($request->filled('sub_division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer', 'division_manager'])) {
+        if ($request->filled('sub_division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer', 'division_manager', 'sub_division_manager'])) {
             $query->whereIn('substation_id',
                 Substation::where('sub_division_id', $request->sub_division_id)->pluck('id')
             );
@@ -154,6 +154,15 @@ class FeederController extends Controller
             return $query->get();
         }
 
+        if ($user->hasRole('division_manager')) {
+            return Division::where('id', $user->jurisdiction_id)->get();
+        }
+
+        if ($user->hasRole('sub_division_manager')) {
+            $subDiv = SubDivision::find($user->jurisdiction_id);
+            return $subDiv ? Division::where('id', $subDiv->division_id)->get() : collect();
+        }
+
         return collect();
     }
 
@@ -173,7 +182,15 @@ class FeederController extends Controller
         }
 
         if ($user->hasRole('division_manager')) {
-            return SubDivision::where('division_id', $user->jurisdiction_id)->orderBy('name')->get();
+            $query = SubDivision::where('division_id', $user->jurisdiction_id)->orderBy('name');
+            if ($divisionId) {
+                $query->where('division_id', $divisionId);
+            }
+            return $query->get();
+        }
+
+        if ($user->hasRole('sub_division_manager')) {
+            return SubDivision::where('id', $user->jurisdiction_id)->get();
         }
 
         return collect();
