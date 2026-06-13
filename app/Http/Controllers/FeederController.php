@@ -44,16 +44,16 @@ class FeederController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('current_status', $request->status);
+            $query->where('feeders.current_status', $request->status);
         }
         if ($request->filled('category')) {
-            $query->where('category', $request->category);
+            $query->where('feeders.category', $request->category);
         }
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(fn($q) => $q
-                ->where('name', 'like', "%{$search}%")
-                ->orWhere('tnd_code', 'like', "%{$search}%")
+                ->where('feeders.name', 'like', "%{$search}%")
+                ->orWhere('feeders.tnd_code', 'like', "%{$search}%")
             );
         }
         if ($request->filled('division_id') && $user->hasAnyRole(['admin', 'circle', 'circle_viewer', 'division_manager', 'sub_division_manager'])) {
@@ -69,6 +69,16 @@ class FeederController extends Controller
 
         $divisions    = $this->getDivisionsForFilter($user);
         $subDivisions = $this->getSubDivisionsForFilter($user, $request->division_id);
+
+        // When category is selected, narrow divisions to those that actually have feeders in that category
+        if ($request->filled('category')) {
+            $divIdsWithCat = Feeder::where('feeders.category', $request->category)
+                ->join('substations as ss2', 'feeders.substation_id', '=', 'ss2.id')
+                ->join('sub_divisions as sd2', 'ss2.sub_division_id', '=', 'sd2.id')
+                ->pluck('sd2.division_id')
+                ->unique();
+            $divisions = $divisions->filter(fn($d) => $divIdsWithCat->contains($d->id))->values();
+        }
 
         $statusLabels = [
             'fully_on'     => 'Fully ON',

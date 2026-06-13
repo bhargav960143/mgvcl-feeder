@@ -43,7 +43,7 @@
 {{-- Filters --}}
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
-        <form method="GET" action="{{ route('feeders.index') }}" class="row g-2 align-items-end">
+        <form id="feederFilterForm" method="GET" action="{{ route('feeders.index') }}" class="row g-2 align-items-end">
 
             {{-- Search --}}
             <div class="col-12 col-md-3">
@@ -64,7 +64,7 @@
 
             {{-- Category --}}
             <div class="col-6 col-md-2">
-                <select name="category" class="form-select form-select-sm">
+                <select name="category" id="categorySelect" class="form-select form-select-sm">
                     <option value="">All Category</option>
                     @foreach($categories as $cat)
                     <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
@@ -75,7 +75,7 @@
             {{-- Division filter --}}
             @if($divisions->isNotEmpty())
             <div class="col-6 col-md-2">
-                <select name="division_id" class="form-select form-select-sm">
+                <select name="division_id" id="divisionSelect" class="form-select form-select-sm">
                     <option value="">All Divisions</option>
                     @foreach($divisions as $division)
                     <option value="{{ $division->id }}" {{ request('division_id') == $division->id ? 'selected' : '' }}>
@@ -89,7 +89,7 @@
             {{-- Sub Division filter --}}
             @if($subDivisions->isNotEmpty())
             <div class="col-6 col-md-2">
-                <select name="sub_division_id" class="form-select form-select-sm">
+                <select name="sub_division_id" id="subDivisionSelect" class="form-select form-select-sm">
                     <option value="">All Sub Divs</option>
                     @foreach($subDivisions as $sd)
                     <option value="{{ $sd->id }}" {{ request('sub_division_id') == $sd->id ? 'selected' : '' }}>
@@ -150,7 +150,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($feeders as $feeder)
+                    @foreach($feeders as $feeder)
                     <tr data-feeder-row="{{ $feeder->id }}">
                         <td class="ps-3">
                             @can('updateStatus', $feeder)
@@ -228,14 +228,7 @@
                             </div>
                         </td>
                     </tr>
-                    @empty
-                    <tr>
-                        <td colspan="13" class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
-                            No feeders found.
-                        </td>
-                    </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
@@ -382,6 +375,27 @@
 
 @push('scripts')
 <script>
+    // --- Filter cascade: category change resets division+sub-division and submits ---
+    const filterForm = document.getElementById('feederFilterForm');
+    const categorySelect    = document.getElementById('categorySelect');
+    const divisionSelect    = document.getElementById('divisionSelect');
+    const subDivisionSelect = document.getElementById('subDivisionSelect');
+
+    if (categorySelect) {
+        categorySelect.addEventListener('change', function () {
+            if (divisionSelect)    divisionSelect.value = '';
+            if (subDivisionSelect) subDivisionSelect.value = '';
+            filterForm.submit();
+        });
+    }
+
+    if (divisionSelect) {
+        divisionSelect.addEventListener('change', function () {
+            if (subDivisionSelect) subDivisionSelect.value = '';
+            filterForm.submit();
+        });
+    }
+
     // --- DataTables init ---
     const table = $('#feedersTable').DataTable({
         pageLength: 25,
@@ -389,7 +403,7 @@
         order: [],
         searching: true,
         columnDefs: [{ orderable: false, targets: [0, 3] }],
-        language: { search: 'Quick search:', zeroRecords: 'No feeders found.' }
+        language: { search: 'Quick search:', zeroRecords: 'No feeders found.', emptyTable: 'No feeders found.' }
     });
 
     // --- Bulk selection state (persists across DataTables pages) ---
